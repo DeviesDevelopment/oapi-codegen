@@ -16,15 +16,7 @@ func TestIssue(t *testing.T) {
 	swagger, err := openapi3.NewLoader().LoadFromData(spec)
 	require.NoError(t, err)
 
-	opts := codegen.Configuration{
-		PackageName: "issue52",
-		Generate: codegen.GenerateOptions{
-			EchoServer:   true,
-			Client:       true,
-			Models:       true,
-			EmbeddedSpec: true,
-		},
-	}
+	opts := codegen.NewDefaultConfigurationWithPackage("issue52")
 
 	_, err = codegen.Generate(swagger, opts)
 	require.NoError(t, err)

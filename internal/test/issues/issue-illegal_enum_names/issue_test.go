@@ -15,20 +15,12 @@ func TestIllegalEnumNames(t *testing.T) {
 	swagger, err := openapi3.NewLoader().LoadFromFile("spec.yaml")
 	require.NoError(t, err)
 
-	opts := codegen.Configuration{
-		PackageName: "illegalenumnames",
-		Generate: codegen.GenerateOptions{
-			EchoServer:   true,
-			Client:       true,
-			Models:       true,
-			EmbeddedSpec: true,
-		},
-	}
+	opts := codegen.NewDefaultConfigurationWithPackage("illegalenumnames")
 
 	code, err := codegen.Generate(swagger, opts)
 	require.NoError(t, err)
 
-	f, err := parser.ParseFile(token.NewFileSet(), "", code, parser.AllErrors)
+	f, err := parser.ParseFile(token.NewFileSet(), "", code.GetOutput(codegen.Models), parser.AllErrors)
 	require.NoError(t, err)
 
 	constDefs := make(map[string]string)

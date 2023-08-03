@@ -4,10 +4,9 @@ import (
 	_ "embed"
 	"testing"
 
+	"github.com/deepmap/oapi-codegen/pkg/codegen"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/stretchr/testify/require"
-
-	"github.com/deepmap/oapi-codegen/pkg/codegen"
 )
 
 //go:embed child.api.yaml
@@ -20,17 +19,9 @@ func TestIssue(t *testing.T) {
 	swagger, err := loader.LoadFromData(spec)
 	require.NoError(t, err)
 
-	opts := codegen.Configuration{
-		PackageName: "issue1093",
-		Generate: codegen.GenerateOptions{
-			GinServer:    true,
-			Strict:       true,
-			Models:       true,
-			EmbeddedSpec: true,
-		},
-		ImportMapping: map[string]string{
-			"parent.api.yaml": "github.com/deepmap/oapi-codegen/internal/test/issues/issue-1093/api/parent",
-		},
+	opts := codegen.NewDefaultConfigurationWithPackage("issue1093")
+	opts.ImportMapping = map[string]string{
+		"parent.api.yaml": "github.com/deepmap/oapi-codegen/internal/test/issues/issue-1093/api/parent",
 	}
 
 	_, err = codegen.Generate(swagger, opts)

@@ -8,19 +8,10 @@ import (
 )
 
 func TestFilterOperationsByTag(t *testing.T) {
-	packageName := "testswagger"
 	t.Run("include tags", func(t *testing.T) {
-		opts := Configuration{
-			PackageName: packageName,
-			Generate: GenerateOptions{
-				EchoServer:   true,
-				Client:       true,
-				Models:       true,
-				EmbeddedSpec: true,
-			},
-			OutputOptions: OutputOptions{
-				IncludeTags: []string{"hippo", "giraffe", "cat"},
-			},
+		opts := NewDefaultConfigurationWithPackage("testswagger")
+		opts.OutputOptions = OutputOptions{
+			IncludeTags: []string{"hippo", "giraffe", "cat"},
 		}
 
 		loader := openapi3.NewLoader()
@@ -33,23 +24,15 @@ func TestFilterOperationsByTag(t *testing.T) {
 		// Run our code generation:
 		code, err := Generate(swagger, opts)
 		assert.NoError(t, err)
-		assert.NotEmpty(t, code)
-		assert.NotContains(t, code, `"/test/:name"`)
-		assert.Contains(t, code, `"/cat"`)
+		assert.NotEmpty(t, code.Output)
+		assert.NotContains(t, code.Output[EchoServer].Code, `"/test/:name"`)
+		assert.Contains(t, code.Output[EchoServer].Code, `"/cat"`)
 	})
 
 	t.Run("exclude tags", func(t *testing.T) {
-		opts := Configuration{
-			PackageName: packageName,
-			Generate: GenerateOptions{
-				EchoServer:   true,
-				Client:       true,
-				Models:       true,
-				EmbeddedSpec: true,
-			},
-			OutputOptions: OutputOptions{
-				ExcludeTags: []string{"hippo", "giraffe", "cat"},
-			},
+		opts := NewDefaultConfigurationWithPackage("testswagger")
+		opts.OutputOptions = OutputOptions{
+			ExcludeTags: []string{"hippo", "giraffe", "cat"},
 		}
 
 		loader := openapi3.NewLoader()
@@ -62,8 +45,8 @@ func TestFilterOperationsByTag(t *testing.T) {
 		// Run our code generation:
 		code, err := Generate(swagger, opts)
 		assert.NoError(t, err)
-		assert.NotEmpty(t, code)
-		assert.Contains(t, code, `"/test/:name"`)
-		assert.NotContains(t, code, `"/cat"`)
+		assert.NotEmpty(t, code.Output)
+		assert.Contains(t, code.Output[EchoServer].Code, `"/test/:name"`)
+		assert.NotContains(t, code.Output[EchoServer].Code, `"/cat"`)
 	})
 }

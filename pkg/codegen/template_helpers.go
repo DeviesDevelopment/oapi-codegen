@@ -152,6 +152,11 @@ func genResponseUnmarshal(op *OperationDefinition) string {
 				continue
 			}
 
+			prefix := ""
+			if globalState.currPkg != globalState.modelPkg && !typeDefinition.Schema.IsAnonymousStruct() {
+				prefix = "apimodel."
+			}
+
 			// Add content-types here (json / yaml / xml etc):
 			switch {
 
@@ -163,7 +168,7 @@ func genResponseUnmarshal(op *OperationDefinition) string {
 						" return nil, err \n"+
 						"}\n"+
 						"response.%s = &dest",
-						typeDefinition.Schema.TypeDecl(),
+						prefix+typeDefinition.Schema.TypeDecl(),
 						typeDefinition.TypeName)
 
 					caseKey, caseClause := buildUnmarshalCase(typeDefinition, caseAction, "json")
@@ -178,7 +183,7 @@ func genResponseUnmarshal(op *OperationDefinition) string {
 						" return nil, err \n"+
 						"}\n"+
 						"response.%s = &dest",
-						typeDefinition.Schema.TypeDecl(),
+						prefix+typeDefinition.Schema.TypeDecl(),
 						typeDefinition.TypeName)
 					caseKey, caseClause := buildUnmarshalCase(typeDefinition, caseAction, "yaml")
 					handledCaseClauses[caseKey] = caseClause
@@ -192,7 +197,7 @@ func genResponseUnmarshal(op *OperationDefinition) string {
 						" return nil, err \n"+
 						"}\n"+
 						"response.%s = &dest",
-						typeDefinition.Schema.TypeDecl(),
+						prefix+typeDefinition.Schema.TypeDecl(),
 						typeDefinition.TypeName)
 					caseKey, caseClause := buildUnmarshalCase(typeDefinition, caseAction, "xml")
 					handledCaseClauses[caseKey] = caseClause

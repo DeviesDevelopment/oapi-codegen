@@ -43,6 +43,10 @@ func (s Schema) IsRef() bool {
 	return s.RefType != ""
 }
 
+func (s Schema) IsAnonymousStruct() bool {
+	return strings.HasPrefix(s.GoType, "struct")
+}
+
 func (s Schema) TypeDecl() string {
 	if s.IsRef() {
 		return s.RefType
@@ -175,6 +179,13 @@ type ResponseTypeDefinition struct {
 
 	// The type name of a response model.
 	ResponseName string
+}
+
+func (t *TypeDefinition) Prefix() string {
+	if globalState.modelPkg != globalState.currPkg && !strings.HasPrefix(t.Schema.GoType, "struct") {
+		return "apimodel."
+	}
+	return ""
 }
 
 func (t *TypeDefinition) IsAlias() bool {

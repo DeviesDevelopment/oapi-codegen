@@ -192,6 +192,13 @@ type SecurityDefinition struct {
 	Scopes       []string
 }
 
+func (sd *SecurityDefinition) Prefix() string {
+	if globalState.modelPkg != globalState.currPkg {
+		return "apimodel."
+	}
+	return ""
+}
+
 func DescribeSecurityDefinition(securityRequirements openapi3.SecurityRequirements) []SecurityDefinition {
 	outDefs := make([]SecurityDefinition, 0)
 
@@ -222,6 +229,13 @@ type OperationDefinition struct {
 	Method              string                  // GET, POST, DELETE, etc.
 	Path                string                  // The Swagger path for the operation, like /resource/{id}
 	Spec                *openapi3.Operation
+}
+
+func (o *OperationDefinition) Prefix() string {
+	if globalState.modelPkg != globalState.currPkg {
+		return "apimodel."
+	}
+	return ""
 }
 
 // Params returns the list of all parameters except Path parameters. Path parameters
@@ -959,16 +973,16 @@ func GenerateStrictServer(t *template.Template, operations []OperationDefinition
 
 	var templates []string
 
-	if opts.Generate.ChiServer || opts.Generate.GorillaServer {
+	if opts.IsTargetEnabled(ChiServer) || opts.IsTargetEnabled(GorillaServer) {
 		templates = append(templates, "strict/strict-interface.tmpl", "strict/strict-http.tmpl")
 	}
-	if opts.Generate.EchoServer {
+	if opts.IsTargetEnabled(EchoServer) {
 		templates = append(templates, "strict/strict-interface.tmpl", "strict/strict-echo.tmpl")
 	}
-	if opts.Generate.GinServer {
+	if opts.IsTargetEnabled(GinServer) {
 		templates = append(templates, "strict/strict-interface.tmpl", "strict/strict-gin.tmpl")
 	}
-	if opts.Generate.FiberServer {
+	if opts.IsTargetEnabled(FiberServer) {
 		templates = append(templates, "strict/strict-fiber-interface.tmpl", "strict/strict-fiber.tmpl")
 	}
 

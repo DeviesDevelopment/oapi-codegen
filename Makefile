@@ -15,6 +15,10 @@ $(GOBIN)/golangci-lint:
 .PHONY: tools
 tools: $(GOBIN)/golangci-lint
 
+.PHONY: build
+build:
+	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "-s -w" -o bin/oapi-codegen ./cmd/...
+
 lint: tools
 	$(GOBIN)/golangci-lint run ./...
 
