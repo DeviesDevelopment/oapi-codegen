@@ -5,7 +5,7 @@
             {{.GoName | ucFirst}} {{.TypeDef}} {{.JsonTag}}
         {{end -}}
         {{if .RequiresParamObject -}}
-            Params {{$opid}}Params
+            Params {{.Prefix}}{{$opid}}Params
         {{end -}}
         {{if .HasMaskedRequestContentTypes -}}
             ContentType string
@@ -43,10 +43,10 @@
             {{else if and $fixedStatusCode $isRef -}}
                 type {{$receiverTypeName}} struct{ {{$ref}}{{.NameTagOrContentType}}Response }
             {{else if and (not $hasHeaders) ($fixedStatusCode) (.IsSupported) -}}
-                type {{$receiverTypeName}} {{if eq .NameTag "Multipart"}}func(writer *multipart.Writer)error{{else if .IsSupported}}{{if .Schema.IsRef}}={{end}} {{.Schema.TypeDecl}}{{else}}io.Reader{{end}}
+                type {{$receiverTypeName}} {{if eq .NameTag "Multipart"}}func(writer *multipart.Writer)error{{else if .IsSupported}}{{if .Schema.IsRef}}={{end}}{{.Prefix}}{{.Schema.TypeDecl}}{{else}}io.Reader{{end}}
             {{else -}}
                 type {{$receiverTypeName}} struct {
-                    Body {{if eq .NameTag "Multipart"}}func(writer *multipart.Writer)error{{else if .IsSupported}}{{.Schema.TypeDecl}}{{else}}io.Reader{{end}}
+                    Body {{if eq .NameTag "Multipart"}}func(writer *multipart.Writer)error{{else if .IsSupported}}{{.Prefix}}{{.Schema.TypeDecl}}{{else}}io.Reader{{end}}
                     {{if $hasHeaders -}}
                         Headers {{if $isRef}}{{$ref}}{{else}}{{$opid}}{{$statusCode}}{{end}}ResponseHeaders
                     {{end -}}

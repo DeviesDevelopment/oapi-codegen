@@ -56,6 +56,12 @@ var DefaultOptions = map[string]GenerateOptions{
 		Package: "internal/api/server",
 		Output:  "server.go",
 	},
+	FiberServer: {
+		Target:  FiberServer,
+		Enabled: true,
+		Package: "internal/api/server",
+		Output:  "server.go",
+	},
 	GinServer: {
 		Target:  GinServer,
 		Enabled: true,

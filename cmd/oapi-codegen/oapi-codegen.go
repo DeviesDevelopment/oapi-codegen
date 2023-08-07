@@ -437,7 +437,7 @@ func updateOutputNameFromFlag(cfg *codegen.Configuration, o string) error {
 		}
 	}
 	// Unknown target value was specified
-	return errors.New("Unrecognized target to package mapping:" + o)
+	return errors.New("Unrecognized target to output mapping:" + o)
 }
 
 // Takes the `package` flag as input and updates the configuration. The value must

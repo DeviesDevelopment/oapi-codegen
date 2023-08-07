@@ -496,6 +496,13 @@ func (r ResponseContentDefinition) NameTagOrContentType() string {
 	return SchemaNameToTypeName(r.ContentType)
 }
 
+func (r ResponseContentDefinition) Prefix() string {
+	if globalState.modelPkg != globalState.currPkg {
+		return "apimodel."
+	}
+	return ""
+}
+
 type ResponseHeaderDefinition struct {
 	Name   string
 	GoName string
