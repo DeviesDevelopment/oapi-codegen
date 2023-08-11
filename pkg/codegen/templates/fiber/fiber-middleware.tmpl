@@ -15,7 +15,7 @@ func (siw *ServerInterfaceWrapper) {{$opid}}(c *fiber.Ctx) error {
   {{end}}
 
   {{range .PathParams}}// ------------- Path parameter "{{.ParamName}}" -------------
-  var {{$varName := .GoVariableName}}{{$varName}} {{.TypeDef}}
+  var {{$varName := .GoVariableName}}{{$varName}} {{.Prefix}}{{.TypeDef}}
 
   {{if .IsPassThrough}}
   {{$varName}} = c.Query("{{.ParamName}}")

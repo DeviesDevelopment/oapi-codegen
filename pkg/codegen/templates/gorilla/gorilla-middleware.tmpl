@@ -17,7 +17,7 @@ func (siw *ServerInterfaceWrapper) {{$opid}}(w http.ResponseWriter, r *http.Requ
   {{end}}
 
   {{range .PathParams}}// ------------- Path parameter "{{.ParamName}}" -------------
-  var {{$varName := .GoVariableName}}{{$varName}} {{.TypeDef}}
+  var {{$varName := .GoVariableName}}{{$varName}} {{.Prefix}}{{.TypeDef}}
 
   {{if .IsPassThrough}}
   {{$varName}} = mux.Vars(r)["{{.ParamName}}"]

@@ -43,6 +43,13 @@ func (pd ParameterDefinition) TypeDef() string {
 	return typeDecl
 }
 
+func (pd ParameterDefinition) Prefix() string {
+	if globalState.modelPkg != globalState.currPkg {
+		return "apimodel."
+	}
+	return ""
+}
+
 // JsonTag generates the JSON annotation to map GoType to json type name. If Parameter
 // Foo is marshaled to json as "foo", this will create the annotation
 // 'json:"foo"'
