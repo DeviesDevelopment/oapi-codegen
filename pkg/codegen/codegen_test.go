@@ -44,13 +44,12 @@ func TestExamplePetStoreCodeGeneration(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Run our code generation:
-	code, err := Generate(swagger, opts)
+	err = Generate(swagger, opts)
 	assert.NoError(t, err)
-	assert.NotEmpty(t, code)
 
 	// Loop through the code
-	for _, c := range code.Output {
-		out := c.GetOutput()
+	for _, c := range opts.Targets {
+		out := c.GetOutput(true)
 		// Check that we have valid (formattable) code:
 		_, err = format.Source([]byte(out))
 		assert.NoError(t, err)
@@ -58,17 +57,17 @@ func TestExamplePetStoreCodeGeneration(t *testing.T) {
 		// Check that we have a package:
 		assert.Contains(t, out, "package petstore")
 
-		if c.Target.Target == Client {
+		if c.Target == Client {
 			// Check that the client method signatures return response structs:
 			assert.Contains(t, out, "func (c *Client) FindPetByID(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*http.Response, error) {")
 		}
 
-		if c.Target.Target == Models {
+		if c.Target == Models {
 			// Check that the property comments were generated
 			assert.Contains(t, out, "// Id Unique id of the pet")
 		}
 
-		if strings.Contains(c.Target.Target, "server") {
+		if strings.Contains(c.Target, "server") {
 			// Check that the summary comment contains newlines
 			assert.Contains(t, out, "// Deletes a pet by ID")
 		}
@@ -83,40 +82,38 @@ func TestExamplePetStoreCodeGenerationWithUserTemplates(t *testing.T) {
 	userTemplates := map[string]string{"typedef.tmpl": "//blah\n//blah"}
 
 	// Input vars for code generation:
-	packageName := "api"
 	opts := Configuration{
-		Generate: []*GenerateOptions{
-			{
-				Target:  Models,
-				Enabled: true,
-				Package: packageName,
-				Output:  "types.go",
-			},
+		Generate: GenerateOptions{
+			Models: true,
 		},
 		OutputOptions: OutputOptions{
 			UserTemplates: userTemplates,
 		},
+		Targets: map[string]*GenerateTarget{
+			Models: GenerateTargets[Models],
+		},
 	}
+	opts.Targets[Models].Package = "models"
 
 	// Get a spec from the example PetStore definition:
 	swagger, err := examplePetstore.GetSwagger()
 	assert.NoError(t, err)
 
 	// Run our code generation:
-	code, err := Generate(swagger, opts)
-	out := code.GetOutput(Models)
+	err = Generate(swagger, opts)
+	code := opts.GetTarget(Models).GetOutput(true)
 	assert.NoError(t, err)
-	assert.NotEmpty(t, out)
+	assert.NotEmpty(t, code)
 
 	// Check that we have valid (formattable) code:
-	_, err = format.Source([]byte(out))
+	_, err = format.Source([]byte(code))
 	assert.NoError(t, err)
 
 	// Check that we have a package:
-	assert.Contains(t, out, "package api")
+	assert.Contains(t, code, "package models")
 
 	// Check that the built-in template has been overridden
-	assert.Contains(t, out, "//blah")
+	assert.Contains(t, code, "//blah")
 }
 
 func TestExamplePetStoreCodeGenerationWithFileUserTemplates(t *testing.T) {
@@ -124,39 +121,37 @@ func TestExamplePetStoreCodeGenerationWithFileUserTemplates(t *testing.T) {
 	userTemplates := map[string]string{"typedef.tmpl": "./templates/typedef.tmpl"}
 
 	// Input vars for code generation:
-	packageName := "api"
 	opts := Configuration{
-		Generate: []*GenerateOptions{
-			{
-				Target:  Models,
-				Enabled: true,
-				Package: packageName,
-				Output:  "types.go",
-			},
+		Generate: GenerateOptions{
+			Models: true,
 		},
 		OutputOptions: OutputOptions{
 			UserTemplates: userTemplates,
 		},
+		Targets: map[string]*GenerateTarget{
+			Models: GenerateTargets[Models],
+		},
 	}
+	opts.Targets[Models].Package = "models"
 
 	// Get a spec from the example PetStore definition:
 	swagger, err := examplePetstore.GetSwagger()
 	assert.NoError(t, err)
 
 	// Run our code generation:
-	code, err := Generate(swagger, opts)
-	out := code.GetOutput(Models)
+	err = Generate(swagger, opts)
+	code := opts.GetTarget(Models).GetOutput(true)
 	assert.NoError(t, err)
-	assert.NotEmpty(t, out)
+	assert.NotEmpty(t, code)
 
 	// Check that we have valid (formattable) code:
-	_, err = format.Source([]byte(out))
+	_, err = format.Source([]byte(code))
 	assert.NoError(t, err)
 
 	// Check that we have a package:
-	assert.Contains(t, out, "package api")
+	assert.Contains(t, code, "package models")
 	// Check that the built-in template has been overridden
-	assert.Contains(t, out, "// Package api provides primitives to interact with the openapi")
+	assert.Contains(t, code, "// Package models provides primitives to interact with the openapi")
 }
 
 func TestExamplePetStoreCodeGenerationWithHTTPUserTemplates(t *testing.T) {
@@ -177,41 +172,39 @@ func TestExamplePetStoreCodeGenerationWithHTTPUserTemplates(t *testing.T) {
 	userTemplates := map[string]string{"typedef.tmpl": fmt.Sprintf("http://%s", ln.Addr().String())}
 
 	// Input vars for code generation:
-	packageName := "api"
+	//packageName := "api"
 	opts := Configuration{
-		PackageName: packageName,
-		Generate: []*GenerateOptions{
-			{
-				Target:  Models,
-				Enabled: true,
-				Package: packageName,
-				Output:  "types.go",
-			},
+		Generate: GenerateOptions{
+			Models: true,
 		},
 		OutputOptions: OutputOptions{
 			UserTemplates: userTemplates,
 		},
+		Targets: map[string]*GenerateTarget{
+			Models: GenerateTargets[Models],
+		},
 	}
+	opts.Targets[Models].Package = "models"
 
 	// Get a spec from the example PetStore definition:
 	swagger, err := examplePetstore.GetSwagger()
 	assert.NoError(t, err)
 
 	// Run our code generation:
-	code, err := Generate(swagger, opts)
-	out := code.GetOutput(Models)
+	err = Generate(swagger, opts)
+	code := opts.GetTarget(Models).GetOutput(true)
 	assert.NoError(t, err)
-	assert.NotEmpty(t, out)
+	assert.NotEmpty(t, code)
 
 	// Check that we have valid (formattable) code:
-	_, err = format.Source([]byte(out))
+	_, err = format.Source([]byte(code))
 	assert.NoError(t, err)
 
 	// Check that we have a package:
-	assert.Contains(t, out, "package api")
+	assert.Contains(t, code, "package models")
 
 	// Check that the built-in template has been overriden
-	assert.Contains(t, out, "//blah")
+	assert.Contains(t, code, "//blah")
 }
 
 func TestExamplePetStoreParseFunction(t *testing.T) {
@@ -247,12 +240,11 @@ func TestExampleOpenAPICodeGeneration(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Run our code generation:
-	code, err := Generate(swagger, opts)
+	err = Generate(swagger, opts)
 	assert.NoError(t, err)
-	assert.NotEmpty(t, code.Output)
 
-	for _, c := range code.Output {
-		out := c.GetOutput()
+	for _, c := range opts.Targets {
+		out := c.GetOutput(true)
 		// Check that we have valid (formattable) code:
 		_, err := format.Source([]byte(out))
 		assert.NoError(t, err)
@@ -260,7 +252,7 @@ func TestExampleOpenAPICodeGeneration(t *testing.T) {
 		// Check that we have a package:
 		assert.Contains(t, out, "package testswagger")
 
-		if c.Target.Target == Client {
+		if c.Target == Client {
 			// Check that response structs are generated correctly:
 			assert.Contains(t, out, "type GetTestByNameResponse struct {")
 
@@ -284,7 +276,7 @@ type GetTestByNameResponse struct {
 			assert.Contains(t, out, "func (c *ClientWithResponses) GetTestByNameWithResponse(ctx context.Context, name string, params *GetTestByNameParams, reqEditors ...RequestEditorFn) (*GetTestByNameResponse, error) {")
 		}
 
-		if c.Target.Target == Models {
+		if c.Target == Models {
 			// Check the client method signatures:
 			assert.Contains(t, out, "type GetTestByNameParams struct {")
 			assert.Contains(t, out, "Top *int `form:\"$top,omitempty\" json:\"$top,omitempty\"`")
@@ -308,61 +300,45 @@ func TestExtPropGoTypeSkipOptionalPointer(t *testing.T) {
 	require.NoError(t, err)
 
 	// Run our code generation:
-	code, err := Generate(swagger, opts)
-	out := code.GetOutput(Client)
+	err = Generate(swagger, opts)
+	code := opts.GetTarget(Client).GetOutput(true)
 	assert.NoError(t, err)
-	assert.NotEmpty(t, out)
+	assert.NotEmpty(t, code)
 
 	// Check that we have valid (formattable) code:
-	_, err = format.Source([]byte(out))
+	_, err = format.Source([]byte(code))
 	assert.NoError(t, err)
 
 	// Check that optional pointer fields are skipped if requested
-	assert.Contains(t, out, "NullableFieldSkipFalse *string `json:\"nullableFieldSkipFalse\"`")
-	assert.Contains(t, out, "NullableFieldSkipTrue  string  `json:\"nullableFieldSkipTrue\"`")
-	assert.Contains(t, out, "OptionalField          *string `json:\"optionalField,omitempty\"`")
-	assert.Contains(t, out, "OptionalFieldSkipFalse *string `json:\"optionalFieldSkipFalse,omitempty\"`")
-	assert.Contains(t, out, "OptionalFieldSkipTrue  string  `json:\"optionalFieldSkipTrue,omitempty\"`")
+	assert.Contains(t, code, "NullableFieldSkipFalse *string `json:\"nullableFieldSkipFalse\"`")
+	assert.Contains(t, code, "NullableFieldSkipTrue  string  `json:\"nullableFieldSkipTrue\"`")
+	assert.Contains(t, code, "OptionalField          *string `json:\"optionalField,omitempty\"`")
+	assert.Contains(t, code, "OptionalFieldSkipFalse *string `json:\"optionalFieldSkipFalse,omitempty\"`")
+	assert.Contains(t, code, "OptionalFieldSkipTrue  string  `json:\"optionalFieldSkipTrue,omitempty\"`")
 
 	// Check that the extension applies on custom types as well
-	assert.Contains(t, out, "CustomTypeWithSkipTrue string  `json:\"customTypeWithSkipTrue,omitempty\"`")
+	assert.Contains(t, code, "CustomTypeWithSkipTrue string  `json:\"customTypeWithSkipTrue,omitempty\"`")
 
 	// Check that the extension has no effect on required fields
-	assert.Contains(t, out, "RequiredField          string  `json:\"requiredField\"`")
+	assert.Contains(t, code, "RequiredField          string  `json:\"requiredField\"`")
 }
 
 func TestGoTypeImport(t *testing.T) {
 	opts := Configuration{
 		PackageName: "api",
-		Generate: []*GenerateOptions{
-			{
-				Target:  EchoServer,
-				Enabled: true,
-				Package: "api",
-				Output:  "server.go",
-			},
-			{
-				Target:  Models,
-				Enabled: true,
-				Package: "api",
-				Output:  "types.go",
-			},
-			{
-				Target:  EmbeddedSpec,
-				Enabled: true,
-				Package: "api",
-				Output:  "openapi_spec.go",
-			},
+		Generate: GenerateOptions{
+			EchoServer:   true,
+			EmbeddedSpec: true,
+			Models:       true,
 		},
 		OutputOptions: OutputOptions{
 			SkipFmt: true,
 		},
-	}
-
-	for _, t := range opts.Generate {
-		if t.Target == Client {
-			t.Enabled = false
-		}
+		Targets: map[string]*GenerateTarget{
+			EchoServer:   GenerateTargets[EchoServer],
+			Models:       GenerateTargets[Models],
+			EmbeddedSpec: GenerateTargets[EmbeddedSpec],
+		},
 	}
 
 	spec := "test_specs/x-go-type-import-pet.yaml"
@@ -370,12 +346,11 @@ func TestGoTypeImport(t *testing.T) {
 	require.NoError(t, err)
 
 	// Run our code generation:
-	code, err := Generate(swagger, opts)
+	err = Generate(swagger, opts)
 	assert.NoError(t, err)
-	assert.NotEmpty(t, code.Output)
 
-	for _, c := range code.Output {
-		out := c.Imports + c.Code
+	for _, c := range opts.Targets {
+		out := c.GetOutput(true)
 		// Check that we have valid (formattable) code:
 		_, err = format.Source([]byte(out))
 		assert.NoError(t, err)
@@ -396,7 +371,7 @@ func TestGoTypeImport(t *testing.T) {
 
 		// Check import
 		for _, imp := range imports {
-			assert.Contains(t, out, imp)
+			assert.Contains(t, c.Imports, imp)
 		}
 
 		// Make sure the generated code is valid:
@@ -405,43 +380,41 @@ func TestGoTypeImport(t *testing.T) {
 }
 
 func TestRemoteExternalReference(t *testing.T) {
-	packageName := "api"
 	opts := Configuration{
-		PackageName: packageName,
-		Generate: []*GenerateOptions{
-			{
-				Target:  Models,
-				Enabled: true,
-				Package: packageName,
-				Output:  "types.go",
-			},
+		Generate: GenerateOptions{
+			Models: true,
 		},
 		ImportMapping: map[string]string{
 			remoteRefFile: remoteRefImport,
 		},
+		Targets: map[string]*GenerateTarget{
+			Models: GenerateTargets[Models],
+		},
 	}
+	opts.Targets[Models].Package = "api"
+
 	spec := "test_specs/remote-external-reference.yaml"
 	swagger, err := util.LoadSwagger(spec)
 	require.NoError(t, err)
 
 	// Run our code generation:
-	code, err := Generate(swagger, opts)
-	out := code.GetOutput(Models)
+	err = Generate(swagger, opts)
+	code := opts.GetTarget(Models).GetOutput(true)
 	assert.NoError(t, err)
-	assert.NotEmpty(t, out)
+	assert.NotEmpty(t, code)
 
 	// Check that we have valid (formattable) code:
-	_, err = format.Source([]byte(out))
+	_, err = format.Source([]byte(code))
 	assert.NoError(t, err)
 
 	// Check that we have a package:
-	assert.Contains(t, out, "package api")
+	assert.Contains(t, code, "package api")
 
 	// Check import
-	assert.Contains(t, out, `externalRef0 "github.com/deepmap/oapi-codegen/examples/petstore-expanded"`)
+	assert.Contains(t, code, `externalRef0 "github.com/deepmap/oapi-codegen/examples/petstore-expanded"`)
 
 	// Check generated oneOf structure:
-	assert.Contains(t, out, `
+	assert.Contains(t, code, `
 // ExampleSchema_Item defines model for ExampleSchema.Item.
 type ExampleSchema_Item struct {
 	union json.RawMessage
@@ -449,25 +422,25 @@ type ExampleSchema_Item struct {
 `)
 
 	// Check generated oneOf structure As method:
-	assert.Contains(t, out, `
+	assert.Contains(t, code, `
 // AsExternalRef0NewPet returns the union data inside the ExampleSchema_Item as a externalRef0.NewPet
 func (t ExampleSchema_Item) AsExternalRef0NewPet() (externalRef0.NewPet, error) {
 `)
 
 	// Check generated oneOf structure From method:
-	assert.Contains(t, out, `
+	assert.Contains(t, code, `
 // FromExternalRef0NewPet overwrites any union data inside the ExampleSchema_Item as the provided externalRef0.NewPet
 func (t *ExampleSchema_Item) FromExternalRef0NewPet(v externalRef0.NewPet) error {
 `)
 
 	// Check generated oneOf structure Merge method:
-	assert.Contains(t, out, `
+	assert.Contains(t, code, `
 // FromExternalRef0NewPet overwrites any union data inside the ExampleSchema_Item as the provided externalRef0.NewPet
 func (t *ExampleSchema_Item) FromExternalRef0NewPet(v externalRef0.NewPet) error {
 `)
 
 	// Make sure the generated code is valid:
-	checkLint(t, "test.gen.go", []byte(out))
+	checkLint(t, "test.gen.go", []byte(code))
 
 }
 

@@ -42,7 +42,6 @@ var globalState struct {
 	options       Configuration
 	spec          *openapi3.T
 	importMapping importMap
-	model         bool
 	modelPkg      string
 	currPkg       string
 }
@@ -101,11 +100,10 @@ func constructImportMapping(importMapping map[string]string) importMap {
 // Generate uses the Go templating engine to generate all of our server wrappers from
 // the descriptions we've built up above from the schema objects.
 // opts defines
-func Generate(spec *openapi3.T, opts Configuration) (*CodeOutput, error) {
+func Generate(spec *openapi3.T, opts Configuration) error {
 	// This is global state
 	globalState.options = opts
 	globalState.spec = spec
-	globalState.model = false
 	globalState.importMapping = constructImportMapping(opts.ImportMapping)
 
 	filterOperationsByTag(spec, opts)
@@ -129,7 +127,7 @@ func Generate(spec *openapi3.T, opts Configuration) (*CodeOutput, error) {
 	// above
 	err := LoadTemplates(templates, t)
 	if err != nil {
-		return nil, fmt.Errorf("error parsing oapi-codegen templates: %w", err)
+		return fmt.Errorf("error parsing oapi-codegen templates: %w", err)
 	}
 
 	// load user-provided templates. Will Override built-in versions.
@@ -138,43 +136,42 @@ func Generate(spec *openapi3.T, opts Configuration) (*CodeOutput, error) {
 
 		txt, err := GetUserTemplateText(template)
 		if err != nil {
-			return nil, fmt.Errorf("error loading user-provided template %q: %w", name, err)
+			return fmt.Errorf("error loading user-provided template %q: %w", name, err)
 		}
 
 		_, err = utpl.Parse(txt)
 		if err != nil {
-			return nil, fmt.Errorf("error parsing user-provided template %q: %w", name, err)
+			return fmt.Errorf("error parsing user-provided template %q: %w", name, err)
 		}
 	}
 
 	ops, err := OperationDefinitions(spec, opts.OutputOptions.InitialismOverrides)
 	if err != nil {
-		return nil, fmt.Errorf("error creating operation definitions: %w", err)
+		return fmt.Errorf("error creating operation definitions: %w", err)
 	}
 
 	xGoTypeImports, err := OperationImports(ops)
 	if err != nil {
-		return nil, fmt.Errorf("error getting operation imports: %w", err)
+		return fmt.Errorf("error getting operation imports: %w", err)
 	}
 
 	var typeDefinitions, constantDefinitions string
 	if opts.IsTargetEnabled(Models) {
-		globalState.model = true
-		globalState.modelPkg = opts.GetTarget(Models).GolangPackage()
+		globalState.modelPkg = opts.GetTarget(Models).Package
 		globalState.currPkg = globalState.modelPkg
 		typeDefinitions, err = GenerateTypeDefinitions(t, spec, ops, opts.OutputOptions.ExcludeSchemas)
 		if err != nil {
-			return nil, fmt.Errorf("error generating type definitions: %w", err)
+			return fmt.Errorf("error generating type definitions: %w", err)
 		}
 
 		constantDefinitions, err = GenerateConstants(t, ops)
 		if err != nil {
-			return nil, fmt.Errorf("error generating constants: %w", err)
+			return fmt.Errorf("error generating constants: %w", err)
 		}
 
 		imprts, err := GetTypeDefinitionsImports(spec, opts.OutputOptions.ExcludeSchemas)
 		if err != nil {
-			return nil, fmt.Errorf("error getting type definition imports: %w", err)
+			return fmt.Errorf("error getting type definition imports: %w", err)
 		}
 
 		path := fmt.Sprintf("%s/%s", opts.ModuleName, opts.GetTarget(Models).Package)
@@ -186,14 +183,12 @@ func Generate(spec *openapi3.T, opts Configuration) (*CodeOutput, error) {
 		MergeImports(xGoTypeImports, imprts)
 	}
 
-	globalState.model = false
-
 	var echoServerOut string
 	if opts.IsTargetEnabled(EchoServer) {
 		globalState.currPkg = opts.GetTarget(EchoServer).Package
 		echoServerOut, err = GenerateEchoServer(t, ops)
 		if err != nil {
-			return nil, fmt.Errorf("error generating Go handlers for Paths: %w", err)
+			return fmt.Errorf("error generating Go handlers for Paths: %w", err)
 		}
 	}
 
@@ -202,7 +197,7 @@ func Generate(spec *openapi3.T, opts Configuration) (*CodeOutput, error) {
 		globalState.currPkg = opts.GetTarget(ChiServer).Package
 		chiServerOut, err = GenerateChiServer(t, ops)
 		if err != nil {
-			return nil, fmt.Errorf("error generating Go handlers for Paths: %w", err)
+			return fmt.Errorf("error generating Go handlers for Paths: %w", err)
 		}
 	}
 
@@ -211,7 +206,7 @@ func Generate(spec *openapi3.T, opts Configuration) (*CodeOutput, error) {
 		globalState.currPkg = opts.GetTarget(FiberServer).Package
 		fiberServerOut, err = GenerateFiberServer(t, ops)
 		if err != nil {
-			return nil, fmt.Errorf("error generating Go handlers for Paths: %w", err)
+			return fmt.Errorf("error generating Go handlers for Paths: %w", err)
 		}
 	}
 
@@ -220,7 +215,7 @@ func Generate(spec *openapi3.T, opts Configuration) (*CodeOutput, error) {
 		globalState.currPkg = opts.GetTarget(GinServer).Package
 		ginServerOut, err = GenerateGinServer(t, ops)
 		if err != nil {
-			return nil, fmt.Errorf("error generating Go handlers for Paths: %w", err)
+			return fmt.Errorf("error generating Go handlers for Paths: %w", err)
 		}
 	}
 
@@ -229,7 +224,7 @@ func Generate(spec *openapi3.T, opts Configuration) (*CodeOutput, error) {
 		globalState.currPkg = opts.GetTarget(GorillaServer).Package
 		gorillaServerOut, err = GenerateGorillaServer(t, ops)
 		if err != nil {
-			return nil, fmt.Errorf("error generating Go handlers for Paths: %w", err)
+			return fmt.Errorf("error generating Go handlers for Paths: %w", err)
 		}
 	}
 
@@ -240,16 +235,16 @@ func Generate(spec *openapi3.T, opts Configuration) (*CodeOutput, error) {
 		if spec.Components != nil {
 			responses, err = GenerateResponseDefinitions("", spec.Components.Responses)
 			if err != nil {
-				return nil, fmt.Errorf("error generation response definitions for schema: %w", err)
+				return fmt.Errorf("error generation response definitions for schema: %w", err)
 			}
 		}
 		strictServerResponses, err := GenerateStrictResponses(t, responses)
 		if err != nil {
-			return nil, fmt.Errorf("error generation response definitions for schema: %w", err)
+			return fmt.Errorf("error generation response definitions for schema: %w", err)
 		}
 		strictServerOut, err = GenerateStrictServer(t, ops, opts)
 		if err != nil {
-			return nil, fmt.Errorf("error generating Go handlers for Paths: %w", err)
+			return fmt.Errorf("error generating Go handlers for Paths: %w", err)
 		}
 		strictServerOut = strictServerResponses + strictServerOut
 	}
@@ -259,7 +254,7 @@ func Generate(spec *openapi3.T, opts Configuration) (*CodeOutput, error) {
 		globalState.currPkg = opts.GetTarget(Client).Package
 		clientOut, err = GenerateClient(t, ops)
 		if err != nil {
-			return nil, fmt.Errorf("error generating client: %w", err)
+			return fmt.Errorf("error generating client: %w", err)
 		}
 	}
 
@@ -268,7 +263,7 @@ func Generate(spec *openapi3.T, opts Configuration) (*CodeOutput, error) {
 		globalState.currPkg = opts.GetTarget(Client).Package
 		clientWithResponsesOut, err = GenerateClientWithResponses(t, ops)
 		if err != nil {
-			return nil, fmt.Errorf("error generating client with responses: %w", err)
+			return fmt.Errorf("error generating client with responses: %w", err)
 		}
 	}
 
@@ -277,109 +272,101 @@ func Generate(spec *openapi3.T, opts Configuration) (*CodeOutput, error) {
 		globalState.currPkg = opts.GetTarget(EmbeddedSpec).Package
 		inlinedSpec, err = GenerateInlinedSpec(t, globalState.importMapping, spec)
 		if err != nil {
-			return nil, fmt.Errorf("error generating Go handlers for Paths: %w", err)
+			return fmt.Errorf("error generating Go handlers for Paths: %w", err)
 		}
 	}
 
-	var codeOutput CodeOutput = CodeOutput{
-		Output: make(map[string]*GenerateOutput),
-	}
+	// Generate the targets
+	for _, o := range opts.Targets {
+		var buf bytes.Buffer
+		w := bufio.NewWriter(&buf)
 
-	for _, o := range opts.Generate {
-		if o.Enabled {
-			var buf bytes.Buffer
-			w := bufio.NewWriter(&buf)
+		externalImports := append(globalState.importMapping.GoImports(), importMap(xGoTypeImports).GoImports()...)
 
-			externalImports := append(globalState.importMapping.GoImports(), importMap(xGoTypeImports).GoImports()...)
+		//importsOut, err := GenerateImports(t, externalImports, o.GolangPackage())
+		o.Imports, err = GenerateImports(t, externalImports, o.GolangPackage())
+		if err != nil {
+			return fmt.Errorf("error generating imports: %w", err)
+		}
 
-			importsOut, err := GenerateImports(t, externalImports, o.GolangPackage())
+		if o.Target == Models {
+			_, err = w.WriteString(constantDefinitions)
 			if err != nil {
-				return nil, fmt.Errorf("error generating imports: %w", err)
+				return fmt.Errorf("error writing constants: %w", err)
 			}
 
-			if o.Target == Models {
-				_, err = w.WriteString(constantDefinitions)
-				if err != nil {
-					return nil, fmt.Errorf("error writing constants: %w", err)
-				}
-
-				_, err = w.WriteString(typeDefinitions)
-				if err != nil {
-					return nil, fmt.Errorf("error writing type definitions: %w", err)
-				}
+			_, err = w.WriteString(typeDefinitions)
+			if err != nil {
+				return fmt.Errorf("error writing type definitions: %w", err)
 			}
-
-			if o.Target == Client {
-				_, err = w.WriteString(clientOut)
-				if err != nil {
-					return nil, fmt.Errorf("error writing client: %w", err)
-				}
-
-				_, err = w.WriteString(clientWithResponsesOut)
-				if err != nil {
-					return nil, fmt.Errorf("error writing client: %w", err)
-				}
-			}
-
-			if o.Target == EchoServer {
-				_, err = w.WriteString(echoServerOut)
-				if err != nil {
-					return nil, fmt.Errorf("error writing server path handlers: %w", err)
-				}
-			}
-
-			if o.Target == ChiServer {
-				_, err = w.WriteString(chiServerOut)
-				if err != nil {
-					return nil, fmt.Errorf("error writing server path handlers: %w", err)
-				}
-			}
-
-			if o.Target == FiberServer {
-				_, err = w.WriteString(fiberServerOut)
-				if err != nil {
-					return nil, fmt.Errorf("error writing server path handlers: %w", err)
-				}
-			}
-
-			if o.Target == GinServer {
-				_, err = w.WriteString(ginServerOut)
-				if err != nil {
-					return nil, fmt.Errorf("error writing server path handlers: %w", err)
-				}
-			}
-
-			if o.Target == GorillaServer {
-				_, err = w.WriteString(gorillaServerOut)
-				if err != nil {
-					return nil, fmt.Errorf("error writing server path handlers: %w", err)
-				}
-			}
-
-			if o.Target == StrictServer {
-				_, err = w.WriteString(strictServerOut)
-				if err != nil {
-					return nil, fmt.Errorf("error writing server path handlers: %w", err)
-				}
-			}
-
-			if o.Target == EmbeddedSpec {
-				_, err = w.WriteString(inlinedSpec)
-				if err != nil {
-					return nil, fmt.Errorf("error writing inlined spec: %w", err)
-				}
-			}
-
-			w.Flush()
-			codeOutput.AddOutput(&GenerateOutput{
-				Target:  o,
-				Imports: importsOut,
-				Code:    SanitizeCode(buf.String()),
-			})
 		}
+
+		if o.Target == Client {
+			_, err = w.WriteString(clientOut)
+			if err != nil {
+				return fmt.Errorf("error writing client: %w", err)
+			}
+
+			_, err = w.WriteString(clientWithResponsesOut)
+			if err != nil {
+				return fmt.Errorf("error writing client: %w", err)
+			}
+		}
+
+		if o.Target == EchoServer {
+			_, err = w.WriteString(echoServerOut)
+			if err != nil {
+				return fmt.Errorf("error writing server path handlers: %w", err)
+			}
+		}
+
+		if o.Target == ChiServer {
+			_, err = w.WriteString(chiServerOut)
+			if err != nil {
+				return fmt.Errorf("error writing server path handlers: %w", err)
+			}
+		}
+
+		if o.Target == FiberServer {
+			_, err = w.WriteString(fiberServerOut)
+			if err != nil {
+				return fmt.Errorf("error writing server path handlers: %w", err)
+			}
+		}
+
+		if o.Target == GinServer {
+			_, err = w.WriteString(ginServerOut)
+			if err != nil {
+				return fmt.Errorf("error writing server path handlers: %w", err)
+			}
+		}
+
+		if o.Target == GorillaServer {
+			_, err = w.WriteString(gorillaServerOut)
+			if err != nil {
+				return fmt.Errorf("error writing server path handlers: %w", err)
+			}
+		}
+
+		if o.Target == StrictServer {
+			_, err = w.WriteString(strictServerOut)
+			if err != nil {
+				return fmt.Errorf("error writing server path handlers: %w", err)
+			}
+		}
+
+		if o.Target == EmbeddedSpec {
+			_, err = w.WriteString(inlinedSpec)
+			if err != nil {
+				return fmt.Errorf("error writing inlined spec: %w", err)
+			}
+		}
+
+		w.Flush()
+		o.Code = SanitizeCode(buf.String())
 	}
 
-	return &codeOutput, nil
+	return nil
 }
 
 func GenerateTypeDefinitions(t *template.Template, swagger *openapi3.T, ops []OperationDefinition, excludeSchemas []string) (string, error) {

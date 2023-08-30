@@ -2,6 +2,7 @@ package codegen
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -43,60 +44,33 @@ var targetMappings = map[string]string{
 	"embedded-spec":  EmbeddedSpec,
 }
 
-var DefaultOptions = map[string]GenerateOptions{
+var GenerateTargets = map[string]*GenerateTarget{
 	EchoServer: {
-		Target:  EchoServer,
-		Enabled: true,
-		Package: "internal/api/server",
-		Output:  "server.go",
+		Target: EchoServer,
 	},
 	ChiServer: {
-		Target:  ChiServer,
-		Enabled: true,
-		Package: "internal/api/server",
-		Output:  "server.go",
+		Target: ChiServer,
 	},
 	FiberServer: {
-		Target:  FiberServer,
-		Enabled: true,
-		Package: "internal/api/server",
-		Output:  "server.go",
+		Target: FiberServer,
 	},
 	GinServer: {
-		Target:  GinServer,
-		Enabled: true,
-		Package: "internal/api/server",
-		Output:  "server.go",
+		Target: GinServer,
 	},
 	GorillaServer: {
-		Target:  GorillaServer,
-		Enabled: true,
-		Package: "internal/api/server",
-		Output:  "server.go",
+		Target: GorillaServer,
 	},
 	StrictServer: {
-		Target:  StrictServer,
-		Enabled: true,
-		Package: "internal/api/server",
-		Output:  "server.go",
+		Target: StrictServer,
 	},
 	Client: {
-		Target:  Client,
-		Enabled: true,
-		Package: "pkg/api/client",
-		Output:  "client.go",
+		Target: Client,
 	},
 	Models: {
-		Target:  Models,
-		Enabled: true,
-		Package: "pkg/api/models",
-		Output:  "types.go",
+		Target: Models,
 	},
 	EmbeddedSpec: {
-		Target:  EmbeddedSpec,
-		Enabled: true,
-		Package: "internal/api/server",
-		Output:  "openapi_spec.go",
+		Target: EmbeddedSpec,
 	},
 }
 
@@ -107,128 +81,87 @@ type AdditionalImport struct {
 
 // Configuration defines code generation customizations
 type Configuration struct {
-	ModuleName        string               `yaml:"module"`
-	PackageName       string               `yaml:"package"` // Package name to generate, for backward compatibility
-	Generate          []*GenerateOptions   `yaml:"generate,omitempty"`
+	ModuleName        string               `yaml:"module"`  // Module name for generated code when code is split into different packages
+	PackageName       string               `yaml:"package"` // Package names to generate, for backward compatibility
+	Generate          GenerateOptions      `yaml:"generate,omitempty"`
 	Compatibility     CompatibilityOptions `yaml:"compatibility,omitempty"`
 	OutputOptions     OutputOptions        `yaml:"output-options,omitempty"`
 	ImportMapping     map[string]string    `yaml:"import-mapping,omitempty"` // ImportMapping specifies the golang package path for each external reference
 	AdditionalImports []AdditionalImport   `yaml:"additional-imports,omitempty"`
+	OutputFile        string               `yaml:"output,omitempty"`
+	Targets           GeneratedOutput      `yaml:"-"`
 }
 
 // GenerateOptions specifies which supported output formats to generate.
 type GenerateOptions struct {
-	Target  string `yaml:"target,omitempty"`  // Output target
-	Enabled bool   `yaml:"enabled,omitempty"` // Flag indicating if the target is enabled and should be generated
-	Package string `yaml:"package,omitempty"` // Package name for the target
-	Output  string `yaml:"output,omitempty"`  // File name for the output
+	ChiServer     bool `yaml:"chi-server,omitempty"`     // ChiServer specifies whether to generate chi server boilerplate
+	FiberServer   bool `yaml:"fiber-server,omitempty"`   // FiberServer specifies whether to generate fiber server boilerplate
+	EchoServer    bool `yaml:"echo-server,omitempty"`    // EchoServer specifies whether to generate echo server boilerplate
+	GinServer     bool `yaml:"gin-server,omitempty"`     // GinServer specifies whether to generate gin server boilerplate
+	GorillaServer bool `yaml:"gorilla-server,omitempty"` // GorillaServer specifies whether to generate Gorilla server boilerplate
+	Strict        bool `yaml:"strict-server,omitempty"`  // Strict specifies whether to generate strict server wrapper
+	Client        bool `yaml:"client,omitempty"`         // Client specifies whether to generate client boilerplate
+	Models        bool `yaml:"models,omitempty"`         // Models specifies whether to generate type definitions
+	EmbeddedSpec  bool `yaml:"embedded-spec,omitempty"`  // Whether to embed the swagger spec in the generated code
 }
 
-type GenerateOutput struct {
-	Target  *GenerateOptions
-	Imports string
-	Code    string
+// GenerateOptions specifies which supported output formats to generate.
+type GenerateTarget struct {
+	Target   string // Target name
+	Package  string // Target package (including path)
+	FileName string // Target filename
+	Imports  string // Target imports
+	Code     string // Target generated code
 }
 
-type CodeOutput struct {
-	Output map[string]*GenerateOutput
+func (g GenerateTarget) GolangPackage() string {
+	if strings.Contains(g.Package, "/") {
+		s := strings.SplitAfter(g.Package, "/")
+		return s[len(s)-1]
+	}
+	return g.Package
 }
 
-type FileOutput struct {
-	Path string
-	Name string
-	Code string
-}
-
-func (f *FileOutput) OutputPath(mkdir bool) string {
-	s := strings.Split(f.Path, "/")
+func (g GenerateTarget) OutputPath(mkdir bool) string {
+	s := strings.Split(g.Package, "/")
 	p := filepath.Join(s...)
 
 	if mkdir {
 		os.MkdirAll(p, os.ModePerm)
 	}
-	return filepath.Join(p, f.Name)
+	return filepath.Join(p, g.FileName)
 }
 
-type Iterator interface {
-	HasNext() bool
-	Next() *FileOutput
-}
+// Concatenates the imports and the generated code and formats the code. Then returns the
+// result. Primarily for use with unit tests where you don't want to convert the generated
+// code into an output collection and iterate over it.
+func (g GenerateTarget) GetOutput(format bool) string {
+	s := strings.Join([]string{g.Imports, g.Code}, "\n")
 
-type Collection interface {
-	Iterator() Iterator
-}
-
-type OutputCollection struct {
-	Output []*FileOutput
-}
-
-type OutputIterator struct {
-	Index  int
-	Output []*FileOutput
-}
-
-func (c CodeOutput) Collection() *OutputCollection {
-	merged := map[string]string{}
-	output := make([]*FileOutput, 0)
-
-	// Loop through all targets
-	for _, o := range c.Output {
-		// Already merged?
-		if merged[o.Target.OutputPath(false)] != "" {
-			continue
+	if format {
+		outputBytes, err := imports.Process(g.FileName, []byte(s), nil)
+		if err != nil {
+			return ""
 		}
-		// Join imports and code
-		s := strings.Join([]string{o.Imports, o.Code}, "\n")
-		fo := &FileOutput{
-			Path: o.Target.Package,
-			Name: o.Target.Output,
-			Code: s,
+		return string(outputBytes)
+	}
+	return s
+}
+
+func (g GenerateTarget) WriteOutput(format bool) error {
+	output := g.GetOutput(format)
+
+	if g.FileName != "" {
+		if err := os.WriteFile(g.OutputPath(true), []byte(output), 0o644); err != nil {
+			return err
 		}
-		output = append(output, fo)
-
-		// Now loop through targets
-		for _, t := range c.Output {
-			// Don't compare with self
-			if o.Target == t.Target {
-				continue
-			}
-
-			// Do they share package and output file name?
-			if o.Target.OutputPath(false) == t.Target.OutputPath(false) {
-				// Merge code into existing file
-				s := strings.Join([]string{fo.Code, t.Code}, "\n")
-				fo.Code = s
-				merged[o.Target.OutputPath(false)] = "true"
-			}
-		}
+		return nil
 	}
-	return &OutputCollection{
-		Output: output,
-	}
-}
-
-func (o *OutputCollection) Iterator() Iterator {
-	return &OutputIterator{
-		Output: o.Output,
-	}
-}
-
-func (o *OutputIterator) HasNext() bool {
-	if o.Index < len(o.Output) {
-		return true
-	}
-	return false
-}
-
-func (o *OutputIterator) Next() *FileOutput {
-	if o.HasNext() {
-		output := o.Output[o.Index]
-		o.Index++
-		return output
-	}
+	fmt.Print(output)
 	return nil
 }
+
+type GeneratedOutput map[string]*GenerateTarget
 
 // CompatibilityOptions specifies backward compatibility settings for the
 // code generator.
@@ -288,6 +221,38 @@ type OutputOptions struct {
 	InitialismOverrides bool     `yaml:"initialism-overrides,omitempty"` // Whether to use the initialism overrides
 }
 
+func NewDefaultConfiguration() Configuration {
+	return Configuration{
+		Generate: GenerateOptions{
+			EchoServer:   true,
+			Client:       true,
+			Models:       true,
+			EmbeddedSpec: true,
+		},
+		OutputOptions: OutputOptions{
+			SkipFmt:   false,
+			SkipPrune: false,
+		},
+		Targets: map[string]*GenerateTarget{
+			EchoServer:   GenerateTargets[EchoServer],
+			Client:       GenerateTargets[Client],
+			Models:       GenerateTargets[Models],
+			EmbeddedSpec: GenerateTargets[EmbeddedSpec],
+		},
+	}
+}
+
+func NewDefaultConfigurationWithPackage(pkg string) Configuration {
+	configuration := NewDefaultConfiguration()
+	configuration.PackageName = pkg
+
+	for _, target := range configuration.Targets {
+		target.Package = pkg
+	}
+
+	return configuration
+}
+
 func TargetFromAlias(alias string) (string, error) {
 	target := targetMappings[strings.ToLower(alias)]
 	if target == "nil" {
@@ -296,90 +261,16 @@ func TargetFromAlias(alias string) (string, error) {
 	return target, nil
 }
 
-func NewDefaultConfiguration() Configuration {
-	return Configuration{
-		Generate: []*GenerateOptions{
-			{
-				Target:  EchoServer,
-				Enabled: true,
-				Package: "internal/api/server",
-				Output:  "server.go",
-			},
-			{
-				Target:  Client,
-				Enabled: true,
-				Package: "pkg/api/client",
-				Output:  "client.go",
-			},
-			{
-				Target:  Models,
-				Enabled: true,
-				Package: "pkg/api/models",
-				Output:  "types.go",
-			},
-			{
-				Target:  EmbeddedSpec,
-				Enabled: true,
-				Package: "internal/api/server",
-				Output:  "openapi_spec.go",
-			},
-		},
-		OutputOptions: OutputOptions{
-			SkipFmt:   false,
-			SkipPrune: false,
-		},
-	}
-}
-
-func NewDefaultConfigurationWithPackage(pkg string) Configuration {
-	return Configuration{
-		Generate: []*GenerateOptions{
-			{
-				Target:  EchoServer,
-				Enabled: true,
-				Package: pkg,
-				Output:  "server.go",
-			},
-			{
-				Target:  Client,
-				Enabled: true,
-				Package: pkg,
-				Output:  "client.go",
-			},
-			{
-				Target:  Models,
-				Enabled: true,
-				Package: pkg,
-				Output:  "types.go",
-			},
-			{
-				Target:  EmbeddedSpec,
-				Enabled: true,
-				Package: pkg,
-				Output:  "openapi_spec.go",
-			},
-		},
-		OutputOptions: OutputOptions{
-			SkipFmt:   false,
-			SkipPrune: false,
-		},
-	}
-}
-
 func (c Configuration) IsTargetEnabled(target string) bool {
-	for _, g := range c.Generate {
-		if strings.EqualFold(target, g.Target) {
-			return true
-		}
+	if _, enabled := c.Targets[target]; enabled {
+		return true
 	}
 	return false
 }
 
-func (c Configuration) GetTarget(target string) *GenerateOptions {
-	for _, g := range c.Generate {
-		if strings.EqualFold(target, g.Target) {
-			return g
-		}
+func (c Configuration) GetTarget(s string) *GenerateTarget {
+	if target, exists := c.Targets[s]; exists {
+		return target
 	}
 	return nil
 }
@@ -392,68 +283,137 @@ func (o Configuration) UpdateDefaults() Configuration {
 	return o
 }
 
-// Validate checks whether Configuration represent a valid configuration
-func (o Configuration) Validate() error {
-	if o.Generate == nil {
-		return errors.New("package name must be specified")
+// A valid target to package mapping should contain a single value,
+// or 2 values separated by the '=' sign
+func validateTargetToPackageMapping(cfg *Configuration, s string) ([]string, error) {
+	c := strings.Split(s, "=")
+	// Make sure we have at most 2 values
+	if len(c) > 2 {
+		return nil, errors.New("Invalid target to package mapping.")
+	}
+	// Make sure the target exists
+	_, err := TargetFromAlias(s)
+	if err != nil {
+		return nil, err
+	}
+	// Valid mapping
+	return c, nil
+}
+
+func getStringConfigFieldByName(cfg *Configuration, name string) (reflect.Value, error) {
+	// Get pointer to configuration struct
+	ps := reflect.ValueOf(cfg)
+	// Get value of pointer (struct)
+	s := ps.Elem()
+	// Get the field value
+	s = s.FieldByName(name)
+	if s.Kind() != reflect.String {
+		return reflect.Zero(reflect.TypeOf("")), fmt.Errorf("Config field '%s' is not a string", name)
+	}
+	return s, nil
+}
+
+// Validate the target to mappings for the given element name of the configuration. Element name
+// can be either "Package" or "OutputFile" and needs to be a string.
+func validateTargetMappings(cfg *Configuration, fieldName string) (map[string]string, error) {
+	// Create a map of target to package/output mappings
+	mappings := map[string]string{}
+
+	// Get the reflect field value from the configuration
+	configField, err := getStringConfigFieldByName(cfg, fieldName)
+	if err != nil {
+		return nil, err
+	}
+	// Split the value into an array and lop thorugh the values
+	vals := strings.Split(configField.String(), ",")
+	for _, p := range vals {
+		// Validate the mapping
+		mapping, err := validateTargetToPackageMapping(cfg, p)
+		if err != nil {
+			return nil, err
+		}
+		// Check if it's a package name that should be used for multiple targets
+		if len(mapping) == 1 {
+			// Check if we already have a multiple target package name
+			if _, exists := mappings[""]; exists {
+				return nil, fmt.Errorf("A mapping without target was specified more than once: %s", mapping[0])
+			}
+			// No multiple target mapping exists
+			mappings[""] = mapping[0]
+			continue
+		}
+		// Make sure the target mapping is only specified once
+		target, _ := TargetFromAlias(mapping[0])
+		if _, exists := mappings[target]; exists {
+			return nil, fmt.Errorf("A target mapping already exists: %s", target)
+		}
+		// A valid target to package mapping
+		mappings[target] = mapping[1]
+	}
+	return mappings, nil
+}
+
+// Updates target package names from configuration.
+func updateTargetPackageNames(cfg *Configuration) error {
+	// Validate the mappings
+	mappings, err := validateTargetMappings(cfg, "PackageName")
+	if err != nil {
+		return err
+	}
+	// Mappings are valid. Update the target package names
+	for _, t := range cfg.Targets {
+		// Check if we need to update the specific target
+		if m, exists := mappings[t.Target]; exists {
+			t.Package = m
+			continue
+		}
+		// Check if we have a common package to use for updating the target
+		if m, exists := mappings[""]; exists {
+			t.Package = m
+		}
 	}
 
-	// Only one server type should be specified at a time.
-	nServers := 0
-	if o.IsTargetEnabled(ChiServer) {
-		nServers++
-	}
-	if o.IsTargetEnabled(EchoServer) {
-		nServers++
-	}
-	if o.IsTargetEnabled(GinServer) {
-		nServers++
-	}
-	if nServers > 1 {
-		return errors.New("only one server type is supported at a time")
-	}
 	return nil
 }
 
-func (g GenerateOptions) GolangPackage() string {
-	if strings.Contains(g.Package, "/") {
-		s := strings.SplitAfter(g.Package, "/")
-		return s[len(s)-1]
-	}
-	return g.Package
-}
-
-// Should be able to remove this...
-func (g GenerateOptions) OutputPath(mkdir bool) string {
-	s := strings.Split(g.Package, "/")
-	p := filepath.Join(s...)
-
-	if mkdir {
-		os.MkdirAll(p, os.ModePerm)
-	}
-	return filepath.Join(p, g.Output)
-}
-
-func (c CodeOutput) AddOutput(output *GenerateOutput) {
-	if c.Output == nil {
-		c.Output = make(map[string]*GenerateOutput)
-	}
-
-	c.Output[output.Target.Target] = output
-}
-
-func (c CodeOutput) GetOutput(target string) string {
-	code, ok := c.Output[target]
-	if !ok {
-		return ""
-	}
-	return code.GetOutput()
-}
-
-func (g GenerateOutput) GetOutput() string {
-	outBytes, err := imports.Process(g.Target.Output+".go", []byte(g.Imports+g.Code), nil)
+// Updates target package names from configuration.
+func updateTargetOutputNames(cfg *Configuration) error {
+	// Validate the mappings
+	mappings, err := validateTargetMappings(cfg, "OutputFile")
 	if err != nil {
-		return ""
+		return err
 	}
-	return string(outBytes)
+	// Mappings are valid. Update the target output names
+	for _, t := range cfg.Targets {
+		// Check if we need to update the specific target
+		if m, exists := mappings[t.Target]; exists {
+			t.FileName = m
+			continue
+		}
+		// Check if we have a common output to use for updating the target
+		if m, exists := mappings[""]; exists {
+			t.FileName = m
+		}
+	}
+
+	return nil
+}
+
+// Validate checks whether Configuration represent a valid configuration
+func (c Configuration) Validate() error {
+	// Make sure we have at least one package name
+	if c.PackageName == "" {
+		return errors.New("package name must be specified")
+	}
+	// Validate the package name(s)
+	if err := updateTargetPackageNames(&c); err != nil {
+		return err
+	}
+	// If output file name was specified, validate
+	if c.OutputFile != "" {
+		if err := updateTargetOutputNames(&c); err != nil {
+			return err
+		}
+	}
+	return nil
 }

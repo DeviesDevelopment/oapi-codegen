@@ -18,6 +18,6 @@ func TestIssue(t *testing.T) {
 
 	opts := codegen.NewDefaultConfigurationWithPackage("issue52")
 
-	_, err = codegen.Generate(swagger, opts)
+	err = codegen.Generate(swagger, opts)
 	require.NoError(t, err)
 }

@@ -22,11 +22,12 @@ func TestFilterOperationsByTag(t *testing.T) {
 		assert.NoError(t, err)
 
 		// Run our code generation:
-		code, err := Generate(swagger, opts)
+		err = Generate(swagger, opts)
+		code := opts.GetTarget(EchoServer).Code
 		assert.NoError(t, err)
-		assert.NotEmpty(t, code.Output)
-		assert.NotContains(t, code.Output[EchoServer].Code, `"/test/:name"`)
-		assert.Contains(t, code.Output[EchoServer].Code, `"/cat"`)
+		assert.NotEmpty(t, code)
+		assert.NotContains(t, code, `"/test/:name"`)
+		assert.Contains(t, code, `"/cat"`)
 	})
 
 	t.Run("exclude tags", func(t *testing.T) {
@@ -43,10 +44,11 @@ func TestFilterOperationsByTag(t *testing.T) {
 		assert.NoError(t, err)
 
 		// Run our code generation:
-		code, err := Generate(swagger, opts)
+		err = Generate(swagger, opts)
+		code := opts.GetTarget(EchoServer).Code
 		assert.NoError(t, err)
-		assert.NotEmpty(t, code.Output)
-		assert.Contains(t, code.Output[EchoServer].Code, `"/test/:name"`)
-		assert.NotContains(t, code.Output[EchoServer].Code, `"/cat"`)
+		assert.NotEmpty(t, code)
+		assert.Contains(t, code, `"/test/:name"`)
+		assert.NotContains(t, code, `"/cat"`)
 	})
 }

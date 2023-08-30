@@ -17,10 +17,11 @@ func TestIllegalEnumNames(t *testing.T) {
 
 	opts := codegen.NewDefaultConfigurationWithPackage("illegalenumnames")
 
-	code, err := codegen.Generate(swagger, opts)
+	err = codegen.Generate(swagger, opts)
 	require.NoError(t, err)
 
-	f, err := parser.ParseFile(token.NewFileSet(), "", code.GetOutput(codegen.Models), parser.AllErrors)
+	code := opts.GetTarget(codegen.Models).GetOutput(true)
+	f, err := parser.ParseFile(token.NewFileSet(), "", code, parser.AllErrors)
 	require.NoError(t, err)
 
 	constDefs := make(map[string]string)

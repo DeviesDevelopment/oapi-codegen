@@ -24,6 +24,6 @@ func TestIssue(t *testing.T) {
 		"parent.api.yaml": "github.com/deepmap/oapi-codegen/internal/test/issues/issue-1093/api/parent",
 	}
 
-	_, err = codegen.Generate(swagger, opts)
+	err = codegen.Generate(swagger, opts)
 	require.NoError(t, err)
 }

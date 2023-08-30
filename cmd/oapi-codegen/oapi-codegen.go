@@ -24,7 +24,6 @@ import (
 	"runtime/debug"
 	"strings"
 
-	"golang.org/x/tools/imports"
 	"gopkg.in/yaml.v2"
 
 	"github.com/deepmap/oapi-codegen/pkg/codegen"
@@ -61,9 +60,6 @@ var (
 
 type configuration struct {
 	codegen.Configuration `yaml:",inline"`
-
-	// OutputFile is the filename to output.
-	OutputFile string `yaml:"output,omitempty"`
 }
 
 // oldConfiguration is deprecated. Please add no more flags here. It is here
@@ -210,8 +206,8 @@ func main() {
 			// to old behavior.
 			opts = configuration{
 				Configuration: codegen.NewDefaultConfiguration(),
-				OutputFile:    flagOutputFile,
 			}
+			opts.OutputFile = flagOutputFile
 		}
 
 		if err := updateConfigFromFlags(&opts); err != nil {
@@ -264,35 +260,12 @@ func main() {
 		errExit("error loading swagger spec in %s\n: %s", flag.Arg(0), err)
 	}
 
-	code, err := codegen.Generate(swagger, opts.Configuration)
-	if err != nil {
+	if err := codegen.Generate(swagger, opts.Configuration); err != nil {
 		errExit("error generating code: %s\n", err)
 	}
 
-	iterator := code.Collection().Iterator()
-	for iterator.HasNext() {
-		fileOutput := iterator.Next()
-
-		if fileOutput.Name != "" {
-			var outBytes []byte
-			var err error
-			// Var och när bör detta göras??
-			if !opts.OutputOptions.SkipFmt {
-				outBytes, err = imports.Process(fileOutput.OutputPath(false), []byte(fileOutput.Code), nil)
-				if err != nil {
-					errExit("error writing generated code to file: %s\n", err)
-				}
-				s := string(outBytes)
-				fileOutput.Code = s
-			}
-
-			err = os.WriteFile(fileOutput.OutputPath(true), []byte(fileOutput.Code), 0o644)
-			if err != nil {
-				errExit("error writing generated code to file: %s\n", err)
-			}
-		} else {
-			fmt.Print(fileOutput.Code)
-		}
+	for _, target := range opts.Targets {
+		target.WriteOutput(!opts.OutputOptions.SkipFmt)
 	}
 }
 
@@ -387,159 +360,20 @@ func detectPackageName(cfg *configuration) error {
 	return nil
 }
 
-func updatePackageNameFromFlag(cfg *codegen.Configuration, s string) error {
-	// Check if all targets should have the same package name
-	p := strings.Split(s, "=")
-	if len(p) == 1 {
-		for _, cp := range cfg.Generate {
-			cp.Package = p[0]
-		}
-		return nil
-	}
-	// Otherwise, specific target should have specified package name
-	target, err := codegen.TargetFromAlias(p[0])
-	if err != nil {
-		return err
-	}
-
-	for _, cp := range cfg.Generate {
-		if strings.EqualFold(target, cp.Target) {
-			cp.Package = p[1]
-			return nil
-		}
-	}
-	// Unknown target value was specified
-	return errors.New("Unrecognized target to package mapping:" + s)
-}
-
-func updateOutputNameFromFlag(cfg *codegen.Configuration, o string) error {
-	// Check if all targets should have the same output name
-	p := strings.Split(o, "=")
-	if len(p) == 1 {
-		if !strings.HasSuffix(p[0], ".go") {
-			return fmt.Errorf("Invalid output name %s: must have .go suffix", p)
-		}
-		for _, cp := range cfg.Generate {
-			cp.Output = p[0]
-		}
-		return nil
-	}
-	// Otherwise, specific target should have specified package name
-	target, err := codegen.TargetFromAlias(p[0])
-	if err != nil {
-		return err
-	}
-
-	for _, cp := range cfg.Generate {
-		if strings.EqualFold(target, cp.Target) {
-			cp.Output = p[1]
-			return nil
-		}
-	}
-	// Unknown target value was specified
-	return errors.New("Unrecognized target to output mapping:" + o)
-}
-
-// Takes the `package` flag as input and updates the configuration. The value must
-// either contain a single value or a comma separated list of value. A single value
-// can be of the form `package-1` or `target-1=package-1`. Multiple values can combine
-// a package without a target and target to package mappings. However, in that case
-// only one package without target can be specified. This is to indicate that for
-// specific targets the specified package name should be used, and for all other targets
-// the same package name should be use.
-//
-// Example: -generate echo-server,embedded-spec,client,model -package client=client,model=model,server
-//
-// This example specifies that the `client` target should be generated to the `client` package, the
-// `model` target to the `model` package and everything else to the `server` package
-func updatePackageNamesFromFlag(cfg *codegen.Configuration, flag string) error {
-	var err error
-	pkgs := strings.Split(flag, ",")
-
-	// Check for single value
-	if len(pkgs) == 1 {
-		err = updatePackageNameFromFlag(cfg, flag)
-		if err != nil {
-			return err
-		}
-		return nil
-	}
-
-	var commonPkg bool = false
-	for _, p := range pkgs {
-		// A common package, i.e. one without a target-to-package value
-		// can only be specified once
-		if commonPkg {
-			return errors.New("Invalid package flag. A common package can only be specified once.")
-		}
-
-		c := strings.Split(p, "=")
-		if len(c) == 1 {
-			commonPkg = true
-		}
-
-		err = updatePackageNameFromFlag(cfg, p)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func updateOutputFilesFromFlag(cfg *codegen.Configuration, flag string) error {
-	var err error
-	out := strings.Split(flag, ",")
-
-	// Check for single value
-	if len(out) == 1 {
-		err = updateOutputNameFromFlag(cfg, flag)
-		if err != nil {
-			return err
-		}
-		return nil
-	}
-
-	var commonFile bool = false
-	for _, p := range out {
-		// A common file, i.e. one without a target-to-out value
-		// can only be specified once
-		if commonFile {
-			return errors.New("Invalid package flag. A common package can only be specified once.")
-		}
-
-		c := strings.Split(p, "=")
-		if len(c) == 1 {
-			commonFile = true
-		}
-
-		err = updateOutputNameFromFlag(cfg, p)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 // updateConfigFromFlags updates a loaded configuration from flags. Flags
 // override anything in the file. We generate errors for any unsupported
 // command line flags.
 func updateConfigFromFlags(cfg *configuration) error {
+	if flagPackageName != "" {
+		cfg.PackageName = flagPackageName
+	}
+
 	if flagGenerate != "types,client,server,spec" {
 		// Override generation and output options from generate command line flag.
 		if err := generationTargets(&cfg.Configuration, util.ParseCommandLineList(flagGenerate)); err != nil {
 			return err
 		}
 	}
-
-	if flagPackageName != "" {
-		if err := updatePackageNamesFromFlag(&cfg.Configuration, flagPackageName); err != nil {
-			return err
-		}
-		cfg.PackageName = flagPackageName
-	}
-
 	if flagIncludeTags != "" {
 		cfg.OutputOptions.IncludeTags = util.ParseCommandLineList(flagIncludeTags)
 	}
@@ -569,10 +403,8 @@ func updateConfigFromFlags(cfg *configuration) error {
 	if flagAliasTypes {
 		return fmt.Errorf("--alias-types isn't supported any more")
 	}
-	if flagOutputFile != "" {
-		if err := updateOutputFilesFromFlag(&cfg.Configuration, flagOutputFile); err != nil {
-			return err
-		}
+
+	if cfg.OutputFile == "" {
 		cfg.OutputFile = flagOutputFile
 	}
 
@@ -618,23 +450,45 @@ func updateOldConfigFromFlags(cfg oldConfiguration) oldConfiguration {
 
 // generationTargets sets cfg options based on the generation targets.
 func generationTargets(cfg *codegen.Configuration, targets []string) error {
-	cfg.Generate = make([]*codegen.GenerateOptions, 0)
+	opts := codegen.GenerateOptions{} // Blank to start with.
+	// Reset targets
+	cfg.Targets = make(map[string]*codegen.GenerateTarget)
 
 	for _, opt := range targets {
 		switch opt {
+		case "chi-server", "chi":
+			opts.ChiServer = true
+		case "fiber-server", "fiber":
+			opts.FiberServer = true
+		case "server", "echo-server", "echo":
+			opts.EchoServer = true
+		case "gin", "gin-server":
+			opts.GinServer = true
+		case "gorilla", "gorilla-server":
+			opts.GorillaServer = true
+		case "strict-server":
+			opts.Strict = true
+		case "client":
+			opts.Client = true
+		case "types", "models":
+			opts.Models = true
+		case "spec", "embedded-spec":
+			opts.EmbeddedSpec = true
 		case "skip-fmt":
 			cfg.OutputOptions.SkipFmt = true
 		case "skip-prune":
 			cfg.OutputOptions.SkipPrune = true
 		default:
-			target, err := codegen.TargetFromAlias(opt)
-			if err != nil {
-				return fmt.Errorf("Unknown generate option %q", opt)
-			}
-			option := codegen.DefaultOptions[target]
-			cfg.Generate = append(cfg.Generate, &option)
+			return fmt.Errorf("unknown generate option %q", opt)
+		}
+
+		// Add the target with defaults
+		if opt != "skip-fmt" && opt != "skip-prune" {
+			target, _ := codegen.TargetFromAlias(opt)
+			cfg.Targets[target] = codegen.GenerateTargets[target]
 		}
 	}
+	cfg.Generate = opts
 
 	return nil
 }
@@ -670,8 +524,9 @@ func newConfigFromOldConfig(c oldConfiguration) configuration {
 
 	opts.Compatibility = cfg.Compatibility
 
+	opts.OutputFile = cfg.OutputFile
+
 	return configuration{
 		Configuration: opts,
-		OutputFile:    cfg.OutputFile,
 	}
 }
