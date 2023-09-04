@@ -58,10 +58,6 @@ var (
 	flagInitalismOverrides bool
 )
 
-type configuration struct {
-	codegen.Configuration `yaml:",inline"`
-}
-
 // oldConfiguration is deprecated. Please add no more flags here. It is here
 // for backwards compatibility, and it will be removed in the future.
 type oldConfiguration struct {
@@ -143,7 +139,8 @@ func main() {
 		var oldConfig oldConfiguration
 		oldErr := yaml.UnmarshalStrict(configFile, &oldConfig)
 
-		var newConfig configuration
+		//var newConfig configuration
+		var newConfig codegen.Configuration
 		newErr := yaml.UnmarshalStrict(configFile, &newConfig)
 
 		// If one of the two files parses, but the other fails, we know the
@@ -166,10 +163,10 @@ func main() {
 		// config style. It should work correctly if we go down the old path,
 		// even if we have a simple config file readable as both types.
 		deprecatedFlagNames := map[string]bool{
-			"include-tags":   true,
-			"exclude-tags":   true,
-			"import-mapping": true,
-			//"exclude-schemas":      true,
+			"include-tags":         true,
+			"exclude-tags":         true,
+			"import-mapping":       true,
+			"exclude-schemas":      true,
 			"response-type-suffix": true,
 			"alias-types":          true,
 		}
@@ -188,7 +185,8 @@ func main() {
 		}
 	}
 
-	var opts configuration
+	//var opts configuration
+	var opts codegen.Configuration
 	if !*oldConfigStyle {
 		// We simply read the configuration from disk.
 		if flagConfigFile != "" {
@@ -204,9 +202,7 @@ func main() {
 			// In the case where no config file is provided, we assume some
 			// defaults, so that when this is invoked very simply, it's similar
 			// to old behavior.
-			opts = configuration{
-				Configuration: codegen.NewDefaultConfiguration(),
-			}
+			opts = codegen.NewDefaultConfiguration()
 			opts.OutputFile = flagOutputFile
 		}
 
@@ -227,10 +223,6 @@ func main() {
 		}
 		opts = newConfigFromOldConfig(oldConfig)
 	}
-
-	// Ensure default values are set if user hasn't specified some needed
-	// fields.
-	opts.Configuration = opts.UpdateDefaults()
 
 	if err := detectModuleName(&opts, flagModuleName); err != nil {
 		errExit("%s\n", err)
@@ -260,12 +252,13 @@ func main() {
 		errExit("error loading swagger spec in %s\n: %s", flag.Arg(0), err)
 	}
 
-	if err := codegen.Generate(swagger, opts.Configuration); err != nil {
+	result, err := codegen.Generate(swagger, opts)
+	if err != nil {
 		errExit("error generating code: %s\n", err)
 	}
 
-	for _, target := range opts.Targets {
-		target.WriteOutput(!opts.OutputOptions.SkipFmt)
+	for _, out := range result.ToArray() {
+		out.WriteOutput()
 	}
 }
 
@@ -305,7 +298,7 @@ func loadTemplateOverrides(templatesDir string) (map[string]string, error) {
 	return templates, nil
 }
 
-func detectModuleName(cfg *configuration, flag string) error {
+func detectModuleName(cfg *codegen.Configuration, flag string) error {
 	if cfg.ModuleName != "" {
 		return nil
 	}
@@ -325,7 +318,7 @@ func detectModuleName(cfg *configuration, flag string) error {
 }
 
 // detectPackageName detects and sets PackageName if not already set.
-func detectPackageName(cfg *configuration) error {
+func detectPackageName(cfg *codegen.Configuration) error {
 	if cfg.PackageName != "" {
 		return nil
 	}
@@ -363,14 +356,14 @@ func detectPackageName(cfg *configuration) error {
 // updateConfigFromFlags updates a loaded configuration from flags. Flags
 // override anything in the file. We generate errors for any unsupported
 // command line flags.
-func updateConfigFromFlags(cfg *configuration) error {
+func updateConfigFromFlags(cfg *codegen.Configuration) error {
 	if flagPackageName != "" {
 		cfg.PackageName = flagPackageName
 	}
 
 	if flagGenerate != "types,client,server,spec" {
 		// Override generation and output options from generate command line flag.
-		if err := generationTargets(&cfg.Configuration, util.ParseCommandLineList(flagGenerate)); err != nil {
+		if err := generationTargets(cfg, util.ParseCommandLineList(flagGenerate)); err != nil {
 			return err
 		}
 	}
@@ -484,16 +477,17 @@ func generationTargets(cfg *codegen.Configuration, targets []string) error {
 
 		// Add the target with defaults
 		if opt != "skip-fmt" && opt != "skip-prune" {
-			target, _ := codegen.TargetFromAlias(opt)
-			cfg.Targets[target] = codegen.GenerateTargets[target]
+			if err := cfg.TargetFromAlias(opt); err != nil {
+				return err
+			}
 		}
 	}
 	cfg.Generate = opts
-
 	return nil
 }
 
-func newConfigFromOldConfig(c oldConfiguration) configuration {
+// func newConfigFromOldConfig(c oldConfiguration) configuration {
+func newConfigFromOldConfig(c oldConfiguration) codegen.Configuration {
 	// Take flags into account.
 	cfg := updateOldConfigFromFlags(c)
 
@@ -518,15 +512,10 @@ func newConfigFromOldConfig(c oldConfiguration) configuration {
 	if err != nil {
 		errExit("error loading template overrides: %s\n", err)
 	}
+
 	opts.OutputOptions.UserTemplates = templates
-
 	opts.ImportMapping = cfg.ImportMapping
-
 	opts.Compatibility = cfg.Compatibility
-
 	opts.OutputFile = cfg.OutputFile
-
-	return configuration{
-		Configuration: opts,
-	}
+	return opts
 }

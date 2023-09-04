@@ -1,7 +1,6 @@
 package grabimportnames
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/deepmap/oapi-codegen/pkg/codegen"
@@ -14,13 +13,11 @@ func TestLineComments(t *testing.T) {
 	require.NoError(t, err)
 
 	opts := codegen.NewDefaultConfigurationWithPackage("grabimportnames")
-	err = codegen.Generate(swagger, opts)
-
+	output, err := codegen.Generate(swagger, opts)
+	require.NotNil(t, output, "No targets found")
 	require.NoError(t, err)
-	target := opts.GetTarget(codegen.Models)
-	if target == nil {
-		fmt.Println("Model target not found")
-	}
-	code := opts.GetTarget(codegen.Models).GetOutput(true)
-	require.NotContains(t, code, `"openapi_types"`)
+
+	target, _ := output[codegen.Models]
+	require.NotNil(t, target, "Expected target not found: %s", codegen.Models)
+	require.NotContains(t, target.Code, `"openapi_types"`)
 }

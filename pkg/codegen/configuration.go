@@ -89,7 +89,17 @@ type Configuration struct {
 	ImportMapping     map[string]string    `yaml:"import-mapping,omitempty"` // ImportMapping specifies the golang package path for each external reference
 	AdditionalImports []AdditionalImport   `yaml:"additional-imports,omitempty"`
 	OutputFile        string               `yaml:"output,omitempty"`
-	Targets           GeneratedOutput      `yaml:"-"`
+	Targets           CodegenTargets       `yaml:"-"`
+}
+
+type CodegenTargets map[string]*GenerateTarget
+
+type GenerateTarget struct {
+	Target   string // Target name
+	Package  string // Target package (including path)
+	FileName string // Target filename
+	Imports  string // Target imports
+	Code     string // Target generated code
 }
 
 // GenerateOptions specifies which supported output formats to generate.
@@ -104,64 +114,6 @@ type GenerateOptions struct {
 	Models        bool `yaml:"models,omitempty"`         // Models specifies whether to generate type definitions
 	EmbeddedSpec  bool `yaml:"embedded-spec,omitempty"`  // Whether to embed the swagger spec in the generated code
 }
-
-// GenerateOptions specifies which supported output formats to generate.
-type GenerateTarget struct {
-	Target   string // Target name
-	Package  string // Target package (including path)
-	FileName string // Target filename
-	Imports  string // Target imports
-	Code     string // Target generated code
-}
-
-func (g GenerateTarget) GolangPackage() string {
-	if strings.Contains(g.Package, "/") {
-		s := strings.SplitAfter(g.Package, "/")
-		return s[len(s)-1]
-	}
-	return g.Package
-}
-
-func (g GenerateTarget) OutputPath(mkdir bool) string {
-	s := strings.Split(g.Package, "/")
-	p := filepath.Join(s...)
-
-	if mkdir {
-		os.MkdirAll(p, os.ModePerm)
-	}
-	return filepath.Join(p, g.FileName)
-}
-
-// Concatenates the imports and the generated code and formats the code. Then returns the
-// result. Primarily for use with unit tests where you don't want to convert the generated
-// code into an output collection and iterate over it.
-func (g GenerateTarget) GetOutput(format bool) string {
-	s := strings.Join([]string{g.Imports, g.Code}, "\n")
-
-	if format {
-		outputBytes, err := imports.Process(g.FileName, []byte(s), nil)
-		if err != nil {
-			return ""
-		}
-		return string(outputBytes)
-	}
-	return s
-}
-
-func (g GenerateTarget) WriteOutput(format bool) error {
-	output := g.GetOutput(format)
-
-	if g.FileName != "" {
-		if err := os.WriteFile(g.OutputPath(true), []byte(output), 0o644); err != nil {
-			return err
-		}
-		return nil
-	}
-	fmt.Print(output)
-	return nil
-}
-
-type GeneratedOutput map[string]*GenerateTarget
 
 // CompatibilityOptions specifies backward compatibility settings for the
 // code generator.
@@ -221,6 +173,7 @@ type OutputOptions struct {
 	InitialismOverrides bool     `yaml:"initialism-overrides,omitempty"` // Whether to use the initialism overrides
 }
 
+// Creates a new default configuration.
 func NewDefaultConfiguration() Configuration {
 	return Configuration{
 		Generate: GenerateOptions{
@@ -242,6 +195,7 @@ func NewDefaultConfiguration() Configuration {
 	}
 }
 
+// Creates a default configuration with a packge name.
 func NewDefaultConfigurationWithPackage(pkg string) Configuration {
 	configuration := NewDefaultConfiguration()
 	configuration.PackageName = pkg
@@ -253,14 +207,7 @@ func NewDefaultConfigurationWithPackage(pkg string) Configuration {
 	return configuration
 }
 
-func TargetFromAlias(alias string) (string, error) {
-	target := targetMappings[strings.ToLower(alias)]
-	if target == "nil" {
-		return "", errors.New("Invalid alias:" + alias)
-	}
-	return target, nil
-}
-
+// Checks if the specified target is is enabled, i.e. exists in the configuration.
 func (c Configuration) IsTargetEnabled(target string) bool {
 	if _, enabled := c.Targets[target]; enabled {
 		return true
@@ -268,38 +215,92 @@ func (c Configuration) IsTargetEnabled(target string) bool {
 	return false
 }
 
-func (c Configuration) GetTarget(s string) *GenerateTarget {
-	if target, exists := c.Targets[s]; exists {
-		return target
+// Creates a target from an alias. If the alias is unknown, returns an error.
+func (c Configuration) TargetFromAlias(alias string) error {
+	target := targetMappings[strings.ToLower(alias)]
+	if target == "nil" {
+		return fmt.Errorf("Invalid alias:%s" + alias)
+	}
+	c.Targets[target] = GenerateTargets[target]
+	return nil
+}
+
+// Validate checks whether Configuration represent a valid configuration.
+func (c Configuration) Validate() error {
+	// Make sure we have at least one package name
+	if c.PackageName == "" {
+		return errors.New("package name must be specified")
+	}
+	// Validate the package name(s)
+	if err := updateTargetPackageNames(&c); err != nil {
+		return err
+	}
+	// If output file name was specified, validate
+	if c.OutputFile != "" {
+		if err := updateTargetOutputNames(&c); err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
-// UpdateDefaults sets reasonable default values for unset fields in Configuration
-func (o Configuration) UpdateDefaults() Configuration {
-	if reflect.ValueOf(o.Generate).IsZero() {
-		o.Generate = NewDefaultConfiguration().Generate
+// Returns the package name to use in the source code output of a target.
+func (g GenerateTarget) GolangPackage() string {
+	if strings.Contains(g.Package, "/") {
+		s := strings.SplitAfter(g.Package, "/")
+		return s[len(s)-1]
 	}
-	return o
+	return g.Package
 }
 
-// A valid target to package mapping should contain a single value,
-// or 2 values separated by the '=' sign
-func validateTargetToPackageMapping(cfg *Configuration, s string) ([]string, error) {
+// Returns the complete filename path of a target, including it's directories.
+// Depending on the 'mdir' input argument, also creates the directories if
+// needed.
+func (g GenerateTarget) OutputPath(mkdir bool) string {
+	s := strings.Split(g.Package, "/")
+	p := filepath.Join(s...)
+
+	if mkdir {
+		os.MkdirAll(p, os.ModePerm)
+	}
+	return filepath.Join(p, g.FileName)
+}
+
+// Concatenates the imports and the generated code and formats the code. Then returns the
+// result. Primarily for use with unit tests where you don't want to convert the generated
+// code into an output collection and iterate over it.
+func (g GenerateTarget) GetOutput(format bool) string {
+	s := strings.Join([]string{g.Imports, g.Code}, "\n")
+
+	if format {
+		outputBytes, err := imports.Process(g.FileName, []byte(s), nil)
+		if err != nil {
+			return ""
+		}
+		return string(outputBytes)
+	}
+	return s
+}
+
+// A valid target to package mapping should contain a single value, or 2 values separated 
+// by the '=' sign.
+func validateTargetMapping(cfg *Configuration, s string) ([]string, error) {
 	c := strings.Split(s, "=")
-	// Make sure we have at most 2 values
-	if len(c) > 2 {
-		return nil, errors.New("Invalid target to package mapping.")
+
+	switch len(c) {
+	case 1:
+		return c, nil
+	case 2:
+		if _, exists := targetMappings[c[0]]; !exists {
+			return nil, fmt.Errorf("Invalid target mapping:%s", c)
+		}
+		return c, nil
+	default:
+		return nil, fmt.Errorf("Invalid target mapping:%s", s)
 	}
-	// Make sure the target exists
-	_, err := TargetFromAlias(s)
-	if err != nil {
-		return nil, err
-	}
-	// Valid mapping
-	return c, nil
 }
 
+// Retrieves the value of a string field from a configuration by name.
 func getStringConfigFieldByName(cfg *Configuration, name string) (reflect.Value, error) {
 	// Get pointer to configuration struct
 	ps := reflect.ValueOf(cfg)
@@ -328,7 +329,7 @@ func validateTargetMappings(cfg *Configuration, fieldName string) (map[string]st
 	vals := strings.Split(configField.String(), ",")
 	for _, p := range vals {
 		// Validate the mapping
-		mapping, err := validateTargetToPackageMapping(cfg, p)
+		mapping, err := validateTargetMapping(cfg, p)
 		if err != nil {
 			return nil, err
 		}
@@ -343,7 +344,8 @@ func validateTargetMappings(cfg *Configuration, fieldName string) (map[string]st
 			continue
 		}
 		// Make sure the target mapping is only specified once
-		target, _ := TargetFromAlias(mapping[0])
+		//target, _ := TargetFromAlias(mapping[0])
+		target, _ := targetMappings[mapping[0]]
 		if _, exists := mappings[target]; exists {
 			return nil, fmt.Errorf("A target mapping already exists: %s", target)
 		}
@@ -396,24 +398,5 @@ func updateTargetOutputNames(cfg *Configuration) error {
 		}
 	}
 
-	return nil
-}
-
-// Validate checks whether Configuration represent a valid configuration
-func (c Configuration) Validate() error {
-	// Make sure we have at least one package name
-	if c.PackageName == "" {
-		return errors.New("package name must be specified")
-	}
-	// Validate the package name(s)
-	if err := updateTargetPackageNames(&c); err != nil {
-		return err
-	}
-	// If output file name was specified, validate
-	if c.OutputFile != "" {
-		if err := updateTargetOutputNames(&c); err != nil {
-			return err
-		}
-	}
 	return nil
 }

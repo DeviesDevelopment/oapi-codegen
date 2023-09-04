@@ -8,7 +8,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"strings"
 	"testing"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -44,36 +43,36 @@ func TestExamplePetStoreCodeGeneration(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Run our code generation:
-	err = Generate(swagger, opts)
+	output, err := Generate(swagger, opts)
+	require.NotNil(t, output, "No targets found")
 	assert.NoError(t, err)
 
+	// Make sure we have a EchoServer target with a summary comment containing newlines
+	target, _ := output[EchoServer]
+	require.NotNil(t, target, "Expected target not found: %s", EchoServer)
+	assert.Contains(t, target.Code, "// Deletes a pet by ID")
+
+	// Make sure we have a Client target with method signatures returing response structs:
+	target, _ = output[Client]
+	require.NotNil(t, target, "Expected target not found: %s", Client)
+	assert.Contains(t, target.Code, "func (c *Client) FindPetByID(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*http.Response, error) {")
+
+	// Make sure we have a Models target with property comments:
+	target, _ = output[Models]
+	require.NotNil(t, target, "Expected target not found: %s", Models)
+	assert.Contains(t, target.Code, "// Id Unique id of the pet")
+
 	// Loop through the code
-	for _, c := range opts.Targets {
-		out := c.GetOutput(true)
+	for _, c := range output.ToArray() {
 		// Check that we have valid (formattable) code:
-		_, err = format.Source([]byte(out))
+		_, err = format.Source([]byte(c.Code))
 		assert.NoError(t, err)
 
 		// Check that we have a package:
-		assert.Contains(t, out, "package petstore")
-
-		if c.Target == Client {
-			// Check that the client method signatures return response structs:
-			assert.Contains(t, out, "func (c *Client) FindPetByID(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*http.Response, error) {")
-		}
-
-		if c.Target == Models {
-			// Check that the property comments were generated
-			assert.Contains(t, out, "// Id Unique id of the pet")
-		}
-
-		if strings.Contains(c.Target, "server") {
-			// Check that the summary comment contains newlines
-			assert.Contains(t, out, "// Deletes a pet by ID")
-		}
+		assert.Contains(t, c.Code, "package petstore")
 
 		// Make sure the generated code is valid:
-		checkLint(t, "test.gen.go", []byte(out))
+		checkLint(t, "test.gen.go", []byte(c.Code))
 	}
 }
 
@@ -100,20 +99,23 @@ func TestExamplePetStoreCodeGenerationWithUserTemplates(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Run our code generation:
-	err = Generate(swagger, opts)
-	code := opts.GetTarget(Models).GetOutput(true)
+	output, err := Generate(swagger, opts)
+	require.NotNil(t, output, "No targets found")
 	assert.NoError(t, err)
-	assert.NotEmpty(t, code)
+
+	target, _ := output[Models]
+	require.NotNil(t, target, "Expected target not found: %s", Models)
+	assert.NotEmpty(t, target.Code)
 
 	// Check that we have valid (formattable) code:
-	_, err = format.Source([]byte(code))
+	_, err = format.Source([]byte(target.Code))
 	assert.NoError(t, err)
 
 	// Check that we have a package:
-	assert.Contains(t, code, "package models")
+	assert.Contains(t, target.Code, "package models")
 
 	// Check that the built-in template has been overridden
-	assert.Contains(t, code, "//blah")
+	assert.Contains(t, target.Code, "//blah")
 }
 
 func TestExamplePetStoreCodeGenerationWithFileUserTemplates(t *testing.T) {
@@ -139,19 +141,22 @@ func TestExamplePetStoreCodeGenerationWithFileUserTemplates(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Run our code generation:
-	err = Generate(swagger, opts)
-	code := opts.GetTarget(Models).GetOutput(true)
+	output, err := Generate(swagger, opts)
+	require.NotNil(t, output, "No targets found")
 	assert.NoError(t, err)
-	assert.NotEmpty(t, code)
+
+	target, _ := output[Models]
+	require.NotNil(t, target, "Expected target not found: %s", Models)
+	assert.NotEmpty(t, target.Code)
 
 	// Check that we have valid (formattable) code:
-	_, err = format.Source([]byte(code))
+	_, err = format.Source([]byte(target.Code))
 	assert.NoError(t, err)
 
 	// Check that we have a package:
-	assert.Contains(t, code, "package models")
+	assert.Contains(t, target.Code, "package models")
 	// Check that the built-in template has been overridden
-	assert.Contains(t, code, "// Package models provides primitives to interact with the openapi")
+	assert.Contains(t, target.Code, "// Package models provides primitives to interact with the openapi")
 }
 
 func TestExamplePetStoreCodeGenerationWithHTTPUserTemplates(t *testing.T) {
@@ -191,20 +196,23 @@ func TestExamplePetStoreCodeGenerationWithHTTPUserTemplates(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Run our code generation:
-	err = Generate(swagger, opts)
-	code := opts.GetTarget(Models).GetOutput(true)
+	output, err := Generate(swagger, opts)
+	require.NotNil(t, output, "No targets found")
 	assert.NoError(t, err)
-	assert.NotEmpty(t, code)
+
+	target, _ := output[Models]
+	require.NotNil(t, target, "Expected target not found: %s", Models)
+	assert.NotEmpty(t, target.Code)
 
 	// Check that we have valid (formattable) code:
-	_, err = format.Source([]byte(code))
+	_, err = format.Source([]byte(target.Code))
 	assert.NoError(t, err)
 
 	// Check that we have a package:
-	assert.Contains(t, code, "package models")
+	assert.Contains(t, target.Code, "package models")
 
 	// Check that the built-in template has been overriden
-	assert.Contains(t, code, "//blah")
+	assert.Contains(t, target.Code, "//blah")
 }
 
 func TestExamplePetStoreParseFunction(t *testing.T) {
@@ -240,25 +248,20 @@ func TestExampleOpenAPICodeGeneration(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Run our code generation:
-	err = Generate(swagger, opts)
+	output, err := Generate(swagger, opts)
+	require.NotNil(t, output, "No targets found")
 	assert.NoError(t, err)
 
-	for _, c := range opts.Targets {
-		out := c.GetOutput(true)
-		// Check that we have valid (formattable) code:
-		_, err := format.Source([]byte(out))
-		assert.NoError(t, err)
+	// Check that we have a Client target
+	target, _ := output[Client]
+	require.NotNil(t, target, "Expected target not found: %s", Client)
 
-		// Check that we have a package:
-		assert.Contains(t, out, "package testswagger")
+	// Check that response structs are generated correctly:
+	assert.Contains(t, target.Code, "type GetTestByNameResponse struct {")
 
-		if c.Target == Client {
-			// Check that response structs are generated correctly:
-			assert.Contains(t, out, "type GetTestByNameResponse struct {")
-
-			// Check that response structs contains fallbacks to interface for invalid types:
-			// Here an invalid array with no items.
-			assert.Contains(t, out, `
+	// Check that response structs contains fallbacks to interface for invalid types:
+	// Here an invalid array with no items.
+	assert.Contains(t, target.Code, `
 type GetTestByNameResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -269,27 +272,36 @@ type GetTestByNameResponse struct {
 	JSONDefault  *Error
 }`)
 
-			// Check that the helper methods are generated correctly:
-			assert.Contains(t, out, "func (r GetTestByNameResponse) Status() string {")
-			assert.Contains(t, out, "func ParseGetTestByNameResponse(rsp *http.Response) (*GetTestByNameResponse, error) {")
-			assert.Contains(t, out, "func (c *Client) GetTestByName(ctx context.Context, name string, params *GetTestByNameParams, reqEditors ...RequestEditorFn) (*http.Response, error) {")
-			assert.Contains(t, out, "func (c *ClientWithResponses) GetTestByNameWithResponse(ctx context.Context, name string, params *GetTestByNameParams, reqEditors ...RequestEditorFn) (*GetTestByNameResponse, error) {")
-		}
+	// Check that the helper methods are generated correctly:
+	assert.Contains(t, target.Code, "func (r GetTestByNameResponse) Status() string {")
+	assert.Contains(t, target.Code, "func ParseGetTestByNameResponse(rsp *http.Response) (*GetTestByNameResponse, error) {")
+	assert.Contains(t, target.Code, "func (c *Client) GetTestByName(ctx context.Context, name string, params *GetTestByNameParams, reqEditors ...RequestEditorFn) (*http.Response, error) {")
+	assert.Contains(t, target.Code, "func (c *ClientWithResponses) GetTestByNameWithResponse(ctx context.Context, name string, params *GetTestByNameParams, reqEditors ...RequestEditorFn) (*GetTestByNameResponse, error) {")
 
-		if c.Target == Models {
-			// Check the client method signatures:
-			assert.Contains(t, out, "type GetTestByNameParams struct {")
-			assert.Contains(t, out, "Top *int `form:\"$top,omitempty\" json:\"$top,omitempty\"`")
-			assert.Contains(t, out, "DeadSince *time.Time    `json:\"dead_since,omitempty\" tag1:\"value1\" tag2:\"value2\"`")
-			assert.Contains(t, out, "type EnumTestNumerics int")
-			assert.Contains(t, out, "N2 EnumTestNumerics = 2")
-			assert.Contains(t, out, "type EnumTestEnumNames int")
-			assert.Contains(t, out, "Two  EnumTestEnumNames = 2")
-			assert.Contains(t, out, "Double EnumTestEnumVarnames = 2")
-		}
+	// Check that we have a Models target
+	target, _ = output[Models]
+	require.NotNil(t, target, "Expected target not found: %s", Models)
+
+	// Check the client method signatures:
+	assert.Contains(t, target.Code, "type GetTestByNameParams struct {")
+	assert.Contains(t, target.Code, "Top *int `form:\"$top,omitempty\" json:\"$top,omitempty\"`")
+	assert.Contains(t, target.Code, "DeadSince *time.Time    `json:\"dead_since,omitempty\" tag1:\"value1\" tag2:\"value2\"`")
+	assert.Contains(t, target.Code, "type EnumTestNumerics int")
+	assert.Contains(t, target.Code, "N2 EnumTestNumerics = 2")
+	assert.Contains(t, target.Code, "type EnumTestEnumNames int")
+	assert.Contains(t, target.Code, "Two  EnumTestEnumNames = 2")
+	assert.Contains(t, target.Code, "Double EnumTestEnumVarnames = 2")
+
+	for _, c := range output.ToArray() {
+		// Check that we have valid (formattable) code:
+		_, err := format.Source([]byte(c.Code))
+		assert.NoError(t, err)
+
+		// Check that we have a package:
+		assert.Contains(t, c.Code, "package testswagger")
 
 		// Make sure the generated code is valid:
-		checkLint(t, "test.gen.go", []byte(out))
+		checkLint(t, "test.gen.go", []byte(c.Code))
 	}
 }
 
@@ -300,59 +312,50 @@ func TestExtPropGoTypeSkipOptionalPointer(t *testing.T) {
 	require.NoError(t, err)
 
 	// Run our code generation:
-	err = Generate(swagger, opts)
-	code := opts.GetTarget(Client).GetOutput(true)
+	output, err := Generate(swagger, opts)
+	require.NotNil(t, output, "No targets found")
 	assert.NoError(t, err)
-	assert.NotEmpty(t, code)
+
+	// Check that we have a Client target
+	target, _ := output[Client]
+	require.NotNil(t, target, "Expected target not found: %s", Client)
+	assert.NotEmpty(t, target.Code)
 
 	// Check that we have valid (formattable) code:
-	_, err = format.Source([]byte(code))
+	_, err = format.Source([]byte(target.Code))
 	assert.NoError(t, err)
 
 	// Check that optional pointer fields are skipped if requested
-	assert.Contains(t, code, "NullableFieldSkipFalse *string `json:\"nullableFieldSkipFalse\"`")
-	assert.Contains(t, code, "NullableFieldSkipTrue  string  `json:\"nullableFieldSkipTrue\"`")
-	assert.Contains(t, code, "OptionalField          *string `json:\"optionalField,omitempty\"`")
-	assert.Contains(t, code, "OptionalFieldSkipFalse *string `json:\"optionalFieldSkipFalse,omitempty\"`")
-	assert.Contains(t, code, "OptionalFieldSkipTrue  string  `json:\"optionalFieldSkipTrue,omitempty\"`")
+	assert.Contains(t, target.Code, "NullableFieldSkipFalse *string `json:\"nullableFieldSkipFalse\"`")
+	assert.Contains(t, target.Code, "NullableFieldSkipTrue  string  `json:\"nullableFieldSkipTrue\"`")
+	assert.Contains(t, target.Code, "OptionalField          *string `json:\"optionalField,omitempty\"`")
+	assert.Contains(t, target.Code, "OptionalFieldSkipFalse *string `json:\"optionalFieldSkipFalse,omitempty\"`")
+	assert.Contains(t, target.Code, "OptionalFieldSkipTrue  string  `json:\"optionalFieldSkipTrue,omitempty\"`")
 
 	// Check that the extension applies on custom types as well
-	assert.Contains(t, code, "CustomTypeWithSkipTrue string  `json:\"customTypeWithSkipTrue,omitempty\"`")
+	assert.Contains(t, target.Code, "CustomTypeWithSkipTrue string  `json:\"customTypeWithSkipTrue,omitempty\"`")
 
 	// Check that the extension has no effect on required fields
-	assert.Contains(t, code, "RequiredField          string  `json:\"requiredField\"`")
+	assert.Contains(t, target.Code, "RequiredField          string  `json:\"requiredField\"`")
 }
 
 func TestGoTypeImport(t *testing.T) {
-	opts := Configuration{
-		PackageName: "api",
-		Generate: GenerateOptions{
-			EchoServer:   true,
-			EmbeddedSpec: true,
-			Models:       true,
-		},
-		OutputOptions: OutputOptions{
-			SkipFmt: true,
-		},
-		Targets: map[string]*GenerateTarget{
-			EchoServer:   GenerateTargets[EchoServer],
-			Models:       GenerateTargets[Models],
-			EmbeddedSpec: GenerateTargets[EmbeddedSpec],
-		},
-	}
+	// Input vars for code generation:
+	opts := NewDefaultConfigurationWithPackage("api")
+	opts.OutputOptions.SkipFmt = true
 
 	spec := "test_specs/x-go-type-import-pet.yaml"
 	swagger, err := util.LoadSwagger(spec)
 	require.NoError(t, err)
 
 	// Run our code generation:
-	err = Generate(swagger, opts)
+	output, err := Generate(swagger, opts)
+	require.NotNil(t, output, "No targets found")
 	assert.NoError(t, err)
 
-	for _, c := range opts.Targets {
-		out := c.GetOutput(true)
+	for _, c := range output {
 		// Check that we have valid (formattable) code:
-		_, err = format.Source([]byte(out))
+		_, err = format.Source([]byte(c.Code))
 		assert.NoError(t, err)
 
 		imports := []string{
@@ -371,11 +374,11 @@ func TestGoTypeImport(t *testing.T) {
 
 		// Check import
 		for _, imp := range imports {
-			assert.Contains(t, c.Imports, imp)
+			assert.Contains(t, c.Code, imp)
 		}
 
 		// Make sure the generated code is valid:
-		checkLint(t, "test.gen.go", []byte(out))
+		checkLint(t, "test.gen.go", []byte(c.Code))
 	}
 }
 
@@ -398,23 +401,27 @@ func TestRemoteExternalReference(t *testing.T) {
 	require.NoError(t, err)
 
 	// Run our code generation:
-	err = Generate(swagger, opts)
-	code := opts.GetTarget(Models).GetOutput(true)
+	output, err := Generate(swagger, opts)
+	require.NotNil(t, output, "No targets found")
 	assert.NoError(t, err)
-	assert.NotEmpty(t, code)
+
+	// Check that we have a Client target
+	target, _ := output[Models]
+	require.NotNil(t, target, "Expected target not found: %s", Models)
+	assert.NotEmpty(t, target.Code)
 
 	// Check that we have valid (formattable) code:
-	_, err = format.Source([]byte(code))
+	_, err = format.Source([]byte(target.Code))
 	assert.NoError(t, err)
 
 	// Check that we have a package:
-	assert.Contains(t, code, "package api")
+	assert.Contains(t, target.Code, "package api")
 
 	// Check import
-	assert.Contains(t, code, `externalRef0 "github.com/deepmap/oapi-codegen/examples/petstore-expanded"`)
+	assert.Contains(t, target.Code, `externalRef0 "github.com/deepmap/oapi-codegen/examples/petstore-expanded"`)
 
 	// Check generated oneOf structure:
-	assert.Contains(t, code, `
+	assert.Contains(t, target.Code, `
 // ExampleSchema_Item defines model for ExampleSchema.Item.
 type ExampleSchema_Item struct {
 	union json.RawMessage
@@ -422,25 +429,25 @@ type ExampleSchema_Item struct {
 `)
 
 	// Check generated oneOf structure As method:
-	assert.Contains(t, code, `
+	assert.Contains(t, target.Code, `
 // AsExternalRef0NewPet returns the union data inside the ExampleSchema_Item as a externalRef0.NewPet
 func (t ExampleSchema_Item) AsExternalRef0NewPet() (externalRef0.NewPet, error) {
 `)
 
 	// Check generated oneOf structure From method:
-	assert.Contains(t, code, `
+	assert.Contains(t, target.Code, `
 // FromExternalRef0NewPet overwrites any union data inside the ExampleSchema_Item as the provided externalRef0.NewPet
 func (t *ExampleSchema_Item) FromExternalRef0NewPet(v externalRef0.NewPet) error {
 `)
 
 	// Check generated oneOf structure Merge method:
-	assert.Contains(t, code, `
+	assert.Contains(t, target.Code, `
 // FromExternalRef0NewPet overwrites any union data inside the ExampleSchema_Item as the provided externalRef0.NewPet
 func (t *ExampleSchema_Item) FromExternalRef0NewPet(v externalRef0.NewPet) error {
 `)
 
 	// Make sure the generated code is valid:
-	checkLint(t, "test.gen.go", []byte(code))
+	checkLint(t, "test.gen.go", []byte(target.Code))
 
 }
 
