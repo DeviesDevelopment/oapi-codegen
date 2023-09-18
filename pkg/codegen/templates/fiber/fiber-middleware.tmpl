@@ -15,7 +15,7 @@ func (siw *ServerInterfaceWrapper) {{$opid}}(c *fiber.Ctx) error {
   {{end}}
 
   {{range .PathParams}}// ------------- Path parameter "{{.ParamName}}" -------------
-  var {{$varName := .GoVariableName}}{{$varName}} {{.Prefix}}{{.TypeDef}}
+  var {{$varName := .GoVariableName}}{{$varName}} {{.Alias}}{{.TypeDef}}
 
   {{if .IsPassThrough}}
   {{$varName}} = c.Query("{{.ParamName}}")
@@ -36,12 +36,12 @@ func (siw *ServerInterfaceWrapper) {{$opid}}(c *fiber.Ctx) error {
   {{end}}
 
 {{range .SecurityDefinitions}}
-  c.Context().SetUserValue({{.Prefix}}{{.ProviderName | ucFirst}}Scopes, {{toStringArray .Scopes}})
+  c.Context().SetUserValue({{.Alias}}{{.ProviderName | ucFirst}}Scopes, {{toStringArray .Scopes}})
 {{end}}
 
   {{if .RequiresParamObject}}
     // Parameter object where we will unmarshal all parameters from the context
-    var params {{.Prefix}}{{.OperationId}}Params
+    var params {{.Alias}}{{.OperationId}}Params
 
     {{if .QueryParams}}
     var query url.Values

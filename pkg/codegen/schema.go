@@ -181,7 +181,7 @@ type ResponseTypeDefinition struct {
 	ResponseName string
 }
 
-func (t *TypeDefinition) Prefix() string {
+func (t *TypeDefinition) Alias() string {
 	if globalState.modelPkg != globalState.currPkg && !strings.HasPrefix(t.Schema.GoType, "struct") {
 		return "apimodel."
 	}

@@ -81,7 +81,7 @@ func MarshalDeepObject(i interface{}, paramName string) (string, error) {
 		return "", fmt.Errorf("error traversing JSON structure: %w", err)
 	}
 
-	// Prefix the param name to each subscripted field.
+	// Alias the param name to each subscripted field.
 	for i := range fields {
 		fields[i] = paramName + fields[i]
 	}

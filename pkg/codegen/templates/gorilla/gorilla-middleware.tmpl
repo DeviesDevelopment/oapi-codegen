@@ -17,7 +17,7 @@ func (siw *ServerInterfaceWrapper) {{$opid}}(w http.ResponseWriter, r *http.Requ
   {{end}}
 
   {{range .PathParams}}// ------------- Path parameter "{{.ParamName}}" -------------
-  var {{$varName := .GoVariableName}}{{$varName}} {{.Prefix}}{{.TypeDef}}
+  var {{$varName := .GoVariableName}}{{$varName}} {{.Alias}}{{.TypeDef}}
 
   {{if .IsPassThrough}}
   {{$varName}} = mux.Vars(r)["{{.ParamName}}"]
@@ -40,12 +40,12 @@ func (siw *ServerInterfaceWrapper) {{$opid}}(w http.ResponseWriter, r *http.Requ
   {{end}}
 
 {{range .SecurityDefinitions}}
-  ctx = context.WithValue(ctx, {{.Prefix}}{{.ProviderName | sanitizeGoIdentity | ucFirst}}Scopes, {{toStringArray .Scopes}})
+  ctx = context.WithValue(ctx, {{.Alias}}{{.ProviderName | sanitizeGoIdentity | ucFirst}}Scopes, {{toStringArray .Scopes}})
 {{end}}
 
   {{if .RequiresParamObject}}
     // Parameter object where we will unmarshal all parameters from the context
-    var params {{.Prefix}}{{.OperationId}}Params
+    var params {{.Alias}}{{.OperationId}}Params
 
     {{range $paramIdx, $param := .QueryParams}}
       {{- if (or (or .Required .IsPassThrough) (or .IsJson .IsStyled)) -}}

@@ -43,7 +43,7 @@ func (pd ParameterDefinition) TypeDef() string {
 	return typeDecl
 }
 
-func (pd ParameterDefinition) Prefix() string {
+func (pd ParameterDefinition) Alias() string {
 	if globalState.modelPkg != globalState.currPkg {
 		return "apimodel."
 	}
@@ -199,7 +199,7 @@ type SecurityDefinition struct {
 	Scopes       []string
 }
 
-func (sd *SecurityDefinition) Prefix() string {
+func (sd *SecurityDefinition) Alias() string {
 	if globalState.modelPkg != globalState.currPkg {
 		return "apimodel."
 	}
@@ -238,7 +238,7 @@ type OperationDefinition struct {
 	Spec                *openapi3.Operation
 }
 
-func (o *OperationDefinition) Prefix() string {
+func (o *OperationDefinition) Alias() string {
 	if globalState.modelPkg != globalState.currPkg {
 		return "apimodel."
 	}
@@ -503,7 +503,7 @@ func (r ResponseContentDefinition) NameTagOrContentType() string {
 	return SchemaNameToTypeName(r.ContentType)
 }
 
-func (r ResponseContentDefinition) Prefix() string {
+func (r ResponseContentDefinition) Alias() string {
 	if globalState.modelPkg != globalState.currPkg {
 		return "apimodel."
 	}

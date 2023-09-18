@@ -7,7 +7,7 @@ type ServerInterfaceWrapper struct {
 func (w *ServerInterfaceWrapper) {{.OperationId}} (ctx echo.Context) error {
     var err error
 {{range .PathParams}}// ------------- Path parameter "{{.ParamName}}" -------------
-    var {{$varName := .GoVariableName}}{{$varName}} {{.Prefix}}{{.TypeDef}}
+    var {{$varName := .GoVariableName}}{{$varName}} {{.Alias}}{{.TypeDef}}
 {{if .IsPassThrough}}
     {{$varName}} = ctx.Param("{{.ParamName}}")
 {{end}}
@@ -26,12 +26,12 @@ func (w *ServerInterfaceWrapper) {{.OperationId}} (ctx echo.Context) error {
 {{end}}
 
 {{range .SecurityDefinitions}}
-    ctx.Set({{.Prefix}}{{.ProviderName | sanitizeGoIdentity | ucFirst}}Scopes, {{toStringArray .Scopes}})
+    ctx.Set({{.Alias}}{{.ProviderName | sanitizeGoIdentity | ucFirst}}Scopes, {{toStringArray .Scopes}})
 {{end}}
 
 {{if .RequiresParamObject}}
     // Parameter object where we will unmarshal all parameters from the context
-    var params {{.Prefix}}{{.OperationId}}Params
+    var params {{.Alias}}{{.OperationId}}Params
 {{range $paramIdx, $param := .QueryParams}}
     {{- if (or (or .Required .IsPassThrough) (or .IsJson .IsStyled)) -}}
       // ------------- {{if .Required}}Required{{else}}Optional{{end}} query parameter "{{.ParamName}}" -------------

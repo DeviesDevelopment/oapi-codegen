@@ -282,7 +282,7 @@ func (g GenerateTarget) GetOutput(format bool) string {
 	return s
 }
 
-// A valid target to package mapping should contain a single value, or 2 values separated 
+// A valid target to package mapping should contain a single value, or 2 values separated
 // by the '=' sign.
 func validateTargetMapping(cfg *Configuration, s string) ([]string, error) {
 	c := strings.Split(s, "=")
