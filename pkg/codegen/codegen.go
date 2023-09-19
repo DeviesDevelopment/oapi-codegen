@@ -17,6 +17,7 @@ package codegen
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"embed"
 	"fmt"
 	"io"
@@ -27,7 +28,9 @@ import (
 	"sort"
 	"strings"
 	"text/template"
+	"time"
 
+	"github.com/deepmap/oapi-codegen/pkg/util"
 	"github.com/getkin/kin-openapi/openapi3"
 )
 
@@ -183,6 +186,15 @@ func Generate(spec *openapi3.T, opts Configuration) (GeneratedOutput, error) {
 		MergeImports(xGoTypeImports, imprts)
 	}
 
+	var irisServerOut string
+	if opts.Generate.IrisServer {
+		globalState.currPkg = opts.Targets[IrisServer].Package
+		irisServerOut, err = GenerateIrisServer(t, ops)
+		if err != nil {
+			return nil, fmt.Errorf("error generating Go handlers for Paths: %w", err)
+		}
+	}
+
 	var echoServerOut string
 	if opts.IsTargetEnabled(EchoServer) {
 		globalState.currPkg = opts.Targets[EchoServer].Package
@@ -282,7 +294,7 @@ func Generate(spec *openapi3.T, opts Configuration) (GeneratedOutput, error) {
 		w := bufio.NewWriter(&buf)
 
 		externalImports := append(globalState.importMapping.GoImports(), importMap(xGoTypeImports).GoImports()...)
-		o.Imports, err = GenerateImports(t, externalImports, o.GolangPackage())
+		o.Imports, err = GenerateImports(t, externalImports, o.GolangPackage(), opts.NoVCSVersionOverride)
 		if err != nil {
 			return nil, fmt.Errorf("error generating imports: %w", err)
 		}
@@ -308,6 +320,13 @@ func Generate(spec *openapi3.T, opts Configuration) (GeneratedOutput, error) {
 			_, err = w.WriteString(clientWithResponsesOut)
 			if err != nil {
 				return nil, fmt.Errorf("error writing client: %w", err)
+			}
+		}
+
+		if o.Target == IrisServer {
+			_, err = w.WriteString(irisServerOut)
+			if err != nil {
+				return nil, fmt.Errorf("error writing server path handlers: %w", err)
 			}
 		}
 
@@ -546,12 +565,25 @@ func GenerateTypesForResponses(t *template.Template, responses openapi3.Response
 		responseOrRef := responses[responseName]
 
 		// We have to generate the response object. We're only going to
-		// handle application/json media types here. Other responses should
+		// handle media types that conform to JSON. Other responses should
 		// simply be specified as strings or byte arrays.
 		response := responseOrRef.Value
-		jsonResponse, found := response.Content["application/json"]
-		if found {
-			goType, err := GenerateGoSchema(jsonResponse.Schema, []string{responseName})
+
+		jsonCount := 0
+		for mediaType := range response.Content {
+			if util.IsMediaTypeJson(mediaType) {
+				jsonCount++
+			}
+		}
+
+		sortedContentKeys := SortedContentKeys(response.Content)
+		for _, mediaType := range sortedContentKeys {
+			response := response.Content[mediaType]
+			if !util.IsMediaTypeJson(mediaType) {
+				continue
+			}
+
+			goType, err := GenerateGoSchema(response.Schema, []string{responseName})
 			if err != nil {
 				return nil, fmt.Errorf("error generating Go type for schema in response %s: %w", responseName, err)
 			}
@@ -575,6 +607,11 @@ func GenerateTypesForResponses(t *template.Template, responses openapi3.Response
 				}
 				typeDef.TypeName = SchemaNameToTypeName(refType)
 			}
+
+			if jsonCount > 1 {
+				typeDef.TypeName = typeDef.TypeName + mediaTypeToCamelCase(mediaType)
+			}
+
 			types = append(types, typeDef)
 		}
 	}
@@ -592,9 +629,12 @@ func GenerateTypesForRequestBodies(t *template.Template, bodies map[string]*open
 		// As for responses, we will only generate Go code for JSON bodies,
 		// the other body formats are up to the user.
 		response := requestBodyRef.Value
-		jsonBody, found := response.Content["application/json"]
-		if found {
-			goType, err := GenerateGoSchema(jsonBody.Schema, []string{requestBodyName})
+		for mediaType, body := range response.Content {
+			if !util.IsMediaTypeJson(mediaType) {
+				continue
+			}
+
+			goType, err := GenerateGoSchema(body.Schema, []string{requestBodyName})
 			if err != nil {
 				return nil, fmt.Errorf("error generating Go type for schema in body %s: %w", requestBodyName, err)
 			}
@@ -734,7 +774,7 @@ func GenerateEnums(t *template.Template, types []TypeDefinition) (string, error)
 }
 
 // GenerateImports generates our import statements and package definition.
-func GenerateImports(t *template.Template, externalImports []string, packageName string) (string, error) {
+func GenerateImports(t *template.Template, externalImports []string, packageName string, versionOverride *string) (string, error) {
 	// Read build version for incorporating into generated files
 	// Unit tests have ok=false, so we'll just use "unknown" for the
 	// version if we can't read this.
@@ -746,6 +786,9 @@ func GenerateImports(t *template.Template, externalImports []string, packageName
 		}
 		if bi.Main.Version != "" {
 			moduleVersion = bi.Main.Version
+		}
+		if versionOverride != nil {
+			moduleVersion = *versionOverride
 		}
 	}
 
@@ -847,6 +890,7 @@ func SanitizeCode(goCode string) string {
 // path when inputData is more than one line.
 // This function will attempt to load a file first, and if it fails, will try to get the
 // data from the remote endpoint.
+// The timeout for remote download file is 30 seconds.
 func GetUserTemplateText(inputData string) (template string, err error) {
 	// if the input data is more than one line, assume its a template and return that data.
 	if strings.Contains(inputData, "\n") {
@@ -865,10 +909,21 @@ func GetUserTemplateText(inputData string) (template string, err error) {
 		return "", fmt.Errorf("failed to open file %s: %w", inputData, err)
 	}
 
-	// attempt to get data from url
-	resp, err := http.Get(inputData)
+	// attempt to get data from url with timeout
+	const downloadTimeout = 30 * time.Second
+	ctx, cancel := context.WithTimeout(context.Background(), downloadTimeout)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, inputData, http.NoBody)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request GET %s: %w", inputData, err)
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("failed to execute GET request data from %s: %w", inputData, err)
+	}
+	if resp != nil {
+		defer resp.Body.Close()
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return "", fmt.Errorf("got non %d status code on GET %s", resp.StatusCode, inputData)
@@ -1053,9 +1108,12 @@ func GetRequestBodiesImports(bodies map[string]*openapi3.RequestBodyRef) (map[st
 	res := map[string]goImport{}
 	for _, r := range bodies {
 		response := r.Value
-		jsonBody, found := response.Content["application/json"]
-		if found {
-			imprts, err := GoSchemaImports(jsonBody.Schema)
+		for mediaType, body := range response.Content {
+			if !util.IsMediaTypeJson(mediaType) {
+				continue
+			}
+
+			imprts, err := GoSchemaImports(body.Schema)
 			if err != nil {
 				return nil, err
 			}
@@ -1069,9 +1127,12 @@ func GetResponsesImports(responses map[string]*openapi3.ResponseRef) (map[string
 	res := map[string]goImport{}
 	for _, r := range responses {
 		response := r.Value
-		jsonResponse, found := response.Content["application/json"]
-		if found {
-			imprts, err := GoSchemaImports(jsonResponse.Schema)
+		for mediaType, body := range response.Content {
+			if !util.IsMediaTypeJson(mediaType) {
+				continue
+			}
+
+			imprts, err := GoSchemaImports(body.Schema)
 			if err != nil {
 				return nil, err
 			}
@@ -1094,4 +1155,8 @@ func GetParametersImports(params map[string]*openapi3.ParameterRef) (map[string]
 		MergeImports(res, imprts)
 	}
 	return res, nil
+}
+
+func SetGlobalStateSpec(spec *openapi3.T) {
+	globalState.spec = spec
 }

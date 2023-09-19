@@ -73,6 +73,10 @@ type oldConfiguration struct {
 	Compatibility      codegen.CompatibilityOptions `yaml:"compatibility"`
 }
 
+// noVCSVersionOverride allows overriding the version of the application for cases where no Version Control System (VCS) is available when building, for instance when using a Nix derivation.
+// See documentation for how to use it in examples/no-vcs-version-override/README.md
+var noVCSVersionOverride string
+
 func main() {
 	flag.StringVar(&flagModuleName, "module", "", "Name of the module for the generated code")
 	flag.StringVar(&flagOutputFile, "o", "", "Where to output generated code, stdout is default")
@@ -87,7 +91,7 @@ func main() {
 	// All flags below are deprecated, and will be removed in a future release. Please do not
 	// update their behavior.
 	flag.StringVar(&flagGenerate, "generate", "types,client,server,spec",
-		`Comma-separated list of code to generate; valid options: "types", "client", "chi-server", "server", "gin", "gorilla", "spec", "skip-fmt", "skip-prune"`)
+		`Comma-separated list of code to generate; valid options: "types", "client", "chi-server", "server", "gin", "gorilla", "spec", "skip-fmt", "skip-prune", "fiber", "iris".`)
 	flag.StringVar(&flagIncludeTags, "include-tags", "", "Only include operations with the given tags. Comma-separated list of tags.")
 	flag.StringVar(&flagExcludeTags, "exclude-tags", "", "Exclude operations that are tagged with the given tags. Comma-separated list of tags.")
 	flag.StringVar(&flagTemplatesDir, "templates", "", "Path to directory containing user templates.")
@@ -111,7 +115,11 @@ func main() {
 			os.Exit(1)
 		}
 		fmt.Println(bi.Main.Path + "/cmd/oapi-codegen")
-		fmt.Println(bi.Main.Version)
+		version := bi.Main.Version
+		if len(noVCSVersionOverride) > 0 {
+			version = noVCSVersionOverride
+		}
+		fmt.Println(version)
 		return
 	}
 
@@ -247,9 +255,13 @@ func main() {
 		return
 	}
 
-	swagger, err := util.LoadSwagger(flag.Arg(0))
+	swagger, err := util.LoadSwaggerWithCircularReferenceCount(flag.Arg(0), opts.Compatibility.CircularReferenceLimit)
 	if err != nil {
 		errExit("error loading swagger spec in %s\n: %s", flag.Arg(0), err)
+	}
+
+	if len(noVCSVersionOverride) > 0 {
+		opts.NoVCSVersionOverride = &noVCSVersionOverride
 	}
 
 	result, err := codegen.Generate(swagger, opts)
@@ -449,6 +461,8 @@ func generationTargets(cfg *codegen.Configuration, targets []string) error {
 
 	for _, opt := range targets {
 		switch opt {
+		case "iris", "iris-server":
+			opts.IrisServer = true
 		case "chi-server", "chi":
 			opts.ChiServer = true
 		case "fiber-server", "fiber":
