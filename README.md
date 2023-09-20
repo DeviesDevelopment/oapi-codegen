@@ -782,8 +782,8 @@ which help you to use the various OpenAPI 3 Authentication mechanism.
 ## Using `oapi-codegen`
 
 The default options for `oapi-codegen` will generate everything; client, server,
-type definitions and embedded swagger spec, but you can generate subsets of
-those via the `-generate` flag. It defaults to `types,client,server,spec`, but
+type definitions and embedded swagger spec. You can generate subsets of those 
+targets via the `-generate` flag. It defaults to `types,client,server,spec`, but
 you can specify any combination of those.
 
 - `types`: generate all type definitions for all types in the OpenAPI spec. This
@@ -806,12 +806,94 @@ you can specify any combination of those.
   the generated file in case the spec contains weird strings.
 - `skip-prune`: skip pruning unused components from the spec prior to generating
   the code.
-- `import-mapping`: specifies a map of references external OpenAPI specs to go
-  Go include paths. Please see below.
 
 So, for example, if you would like to produce only the server code, you could
 run `oapi-codegen -generate types,server`. You could generate `types` and
 `server` into separate files, but both are required for the server code.
+More information about how to control the output of the generated code can be
+found below.
+
+### Generate code into different packages and source files
+
+By default, generated source code is written as a single file to stdout. You can alter 
+this behavior using the `-package` and `-o` flags. Both of these are closely linked to 
+the `-generate` flag. All targets can be controlled this way. To illustrate this, let's 
+look at an example below.
+
+#### Generate server and client into different packages and source files
+
+As stated above, we need to generate type definitions as well, so the `-generate` flag
+would be `types,client,server`. Assuming we would like to have the type definitions 
+along with the client in a package named `client` with a path `pkg/api` and server code
+in a package named `server` with a path `internal/api`, the `-package` option would 
+become:
+
+```sh
+-package types=pkg/api/client,client=pkg/api/client,server=internal/api/server
+```
+
+Since the type definitions and the client code share the same package, a shorthand for the
+obove would be:
+
+```sh
+-package pkg/api/client,server=internal/api/server
+```
+
+Since we now implicitly are instructing oapi-codegen to generate files, we also need to
+specify the names of the files we want to generate. This is where the `-o` flag comes
+into play. It's usage is very similar to the `-package` flag, so assuming we want to have
+the type definitions in a file called `types.gen.go`, the client code in a file called
+`client.gen.go` and the server code in a file called `server.gen.go`, the `-o` flag
+would become:
+
+```sh
+-o types=types.gen.go,client=client.gen.go,server=server.gen.go
+```
+
+The location of the generated files are dependent on the `-package` flag, so using the
+values above we would end up with these generated files, relative to the working directory:
+
+* internal/api/server/server.gen.go
+* pkg/api/client/client.gen.go
+* pkg/api/client/types.gen.go
+
+If you want to have the type definitions and the client code in the same file:
+
+```sh
+-o client.gen.go,server=server.gen.go
+```
+
+But then, of course, the package for the type definitions and the client need to be the
+same as well.
+
+#### Specify the Go module for generated code
+
+Using the `-module` option is important if you generate code into different packages and
+source files because we may need to import the type definitions in generated client and
+server code. By default, the module name is taken from the `go.mod` file, if present.
+However, if one is not present, you can use the `-module` flag to specify it to make sure
+that imports are correct and that the generated code can build. For example, if your Go
+module is named `github.com/myAccount/myRepo`, then the `-module` option would 
+become:
+
+```sh
+-module github.com/myAccount/myRepo
+```
+
+With the example above of generating type definitions into a `client` package, the
+`server.gen.go` source file would look something like:
+
+```go
+package server
+
+import(
+    apimodel "github.com/myAccount/myRepo/pkg/api/client"
+)
+```
+
+***Notice the `apimodel` alias, which is currently fixed and can not be altered.***
+
+### Filtering paths and schemas
 
 `oapi-codegen` can filter paths base on their tags in the openapi definition.
 Use either `-include-tags` or `-exclude-tags` followed by a comma-separated list
@@ -826,6 +908,8 @@ a comma separated list of schema names. For instance, `--exclude-schemas=Pet,New
 will exclude from generation schemas `Pet` and `NewPet`. This allow to have a
 in the same package a manually defined structure or interface and refer to it
 in the openapi spec.
+
+### Using a configuration file
 
 Since `go generate` commands must be a single line, all the options above can make
 them pretty unwieldy, so you can specify all of the options in a configuration
