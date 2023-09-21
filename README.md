@@ -816,9 +816,9 @@ found below.
 ### Generate code into different packages and source files
 
 By default, generated source code is written as a single file to stdout. You can alter 
-this behavior using the `-package` and `-o` flags. Both of these are closely linked to 
-the `-generate` flag. All targets can be controlled this way. To illustrate this, let's 
-look at an example below.
+this behavior using the `-package` and `-o` (output) flags. Both of these are closely 
+linked to the `-generate` flag. All targets can be controlled this way. To illustrate this, 
+let's look at an example below.
 
 #### Generate server and client into different packages and source files
 
@@ -833,25 +833,52 @@ become:
 ```
 
 Since the type definitions and the client code share the same package, a shorthand for the
-obove would be:
+above is:
 
 ```sh
 -package pkg/api/client,server=internal/api/server
 ```
 
-Since we now implicitly are instructing oapi-codegen to generate files, we also need to
-specify the names of the files we want to generate. This is where the `-o` flag comes
-into play. It's usage is very similar to the `-package` flag, so assuming we want to have
-the type definitions in a file called `types.gen.go`, the client code in a file called
-`client.gen.go` and the server code in a file called `server.gen.go`, the `-o` flag
-would become:
+So, the general syntax, in BNF-notation, for the `-package` flag is:
+
+```
+<flag>	           ::=  <package-spec> | <target-mapping> { "," <target-mapping> }
+<package-spec>     ::=  "[" <package-path> "/" "]" <package-name>
+<package-path>     ::=  <package-name> { "/" <package-name> }
+<package-name>     ::=  identifier    
+<target-mapping>   ::=  <target> "=" <package-spec>
+<target>           ::=  "chi" | "chi-server" | "client" | "echo-server" | "embedded-spec" | 
+                        "fiber" | "fiber-server" | "gin" | "gin-server" | "gorilla" |
+                        "gorilla-server" | "iris" | "iris-server" | "server" | "spec" | 
+                        "skip-fmt" | "skip-prune" | "strict-server" | "types"
+```
+
+If you want to output gnerated code as files, you also need to specify the names of the 
+files. This is where the `-o` (output) flag comes into play. It's usage is very similar to the 
+`-package` flag, so assuming we want to have the type definitions in a file called `types.gen.go`, 
+the client code in a file called `client.gen.go` and the server code in a file called 
+`server.gen.go`, the `-o` flag would become:
 
 ```sh
 -o types=types.gen.go,client=client.gen.go,server=server.gen.go
 ```
 
-The location of the generated files are dependent on the `-package` flag, so using the
-values above we would end up with these generated files, relative to the working directory:
+The general syntax, in BNF-notation, for the `-o` flag is:
+
+```
+<flag>	           ::=  <file-name> | <file-mapping> { "," <file-mapping> }
+<file-name>        ::=  valid file name without path   
+<target-mapping>   ::=  <target> "=" <filename>
+<target>           ::=  "chi" | "chi-server" | "client" | "echo-server" | "embedded-spec" | 
+                        "fiber" | "fiber-server" | "gin" | "gin-server" | "gorilla" |
+                        "gorilla-server" | "iris" | "iris-server" | "server" | "spec" | 
+                        "skip-fmt" | "skip-prune" | "strict-server" | "types"
+```
+
+The important point here is that you should not specify any path to the file you want to 
+generate. Instead, the path is relative to the working directory and controlled by the 
+`-package` flag. Using the -package flag above, we would end up with these generated files, 
+relative to the working directory:
 
 * internal/api/server/server.gen.go
 * pkg/api/client/client.gen.go
