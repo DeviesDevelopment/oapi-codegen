@@ -206,6 +206,9 @@ func main() {
 			if err != nil {
 				errExit("error parsing'%s' as YAML: %v\n", flagConfigFile, err)
 			}
+			if err = configOptions(&opts); err != nil {
+				errExit("error processing config file: %v\n", err)
+			}
 		} else {
 			// In the case where no config file is provided, we assume some
 			// defaults, so that when this is invoked very simply, it's similar
@@ -500,7 +503,52 @@ func generationTargets(cfg *codegen.Configuration, targets []string) error {
 	return nil
 }
 
-// func newConfigFromOldConfig(c oldConfiguration) configuration {
+// generationTargets sets generation targets based on config options.
+func configOptions(cfg *codegen.Configuration) error {
+	targets := []string{}
+
+	if cfg.Generate.ChiServer {
+		targets = append(targets, codegen.ChiServer)
+	}
+
+	if cfg.Generate.Client {
+		targets = append(targets, codegen.Client)
+	}
+
+	if cfg.Generate.EchoServer {
+		targets = append(targets, codegen.EchoServer)
+	}
+
+	if cfg.Generate.EmbeddedSpec {
+		targets = append(targets, codegen.EmbeddedSpec)
+	}
+
+	if cfg.Generate.FiberServer {
+		targets = append(targets, codegen.FiberServer)
+	}
+
+	if cfg.Generate.GinServer {
+		targets = append(targets, codegen.GinServer)
+	}
+
+	if cfg.Generate.GorillaServer {
+		targets = append(targets, codegen.GorillaServer)
+	}
+
+	if cfg.Generate.IrisServer {
+		targets = append(targets, codegen.IrisServer)
+	}
+
+	if cfg.Generate.Models {
+		targets = append(targets, codegen.Models)
+	}
+
+	if cfg.Generate.Strict {
+		targets = append(targets, codegen.StrictServer)
+	}
+	return generationTargets(cfg, targets)
+}
+
 func newConfigFromOldConfig(c oldConfiguration) codegen.Configuration {
 	// Take flags into account.
 	cfg := updateOldConfigFromFlags(c)
