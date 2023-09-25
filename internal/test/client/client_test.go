@@ -3,7 +3,7 @@ package client
 import (
 	"testing"
 
-	"github.com/deepmap/oapi-codegen/pkg/securityprovider"
+	"github.com/DeviesDevelopment/oapi-codegen/pkg/securityprovider"
 	"github.com/stretchr/testify/assert"
 )
 

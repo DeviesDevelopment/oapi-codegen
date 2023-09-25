@@ -30,7 +30,7 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/deepmap/oapi-codegen/pkg/util"
+	"github.com/DeviesDevelopment/oapi-codegen/pkg/util"
 	"github.com/getkin/kin-openapi/openapi3"
 )
 

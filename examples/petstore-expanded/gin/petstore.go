@@ -14,7 +14,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/deepmap/oapi-codegen/examples/petstore-expanded/gin/api"
+	"github.com/DeviesDevelopment/oapi-codegen/examples/petstore-expanded/gin/api"
 	middleware "github.com/oapi-codegen/gin-middleware"
 )
 

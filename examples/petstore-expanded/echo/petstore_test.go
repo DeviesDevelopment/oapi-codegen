@@ -19,9 +19,9 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/deepmap/oapi-codegen/examples/petstore-expanded/echo/api"
-	"github.com/deepmap/oapi-codegen/examples/petstore-expanded/echo/api/models"
-	"github.com/deepmap/oapi-codegen/pkg/testutil"
+	"github.com/DeviesDevelopment/oapi-codegen/examples/petstore-expanded/echo/api"
+	"github.com/DeviesDevelopment/oapi-codegen/examples/petstore-expanded/echo/api/models"
+	"github.com/DeviesDevelopment/oapi-codegen/pkg/testutil"
 	"github.com/labstack/echo/v4"
 	echoMiddleware "github.com/labstack/echo/v4/middleware"
 	middleware "github.com/oapi-codegen/echo-middleware"

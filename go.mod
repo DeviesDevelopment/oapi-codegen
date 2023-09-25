@@ -1,4 +1,4 @@
-module github.com/deepmap/oapi-codegen
+module github.com/DeviesDevelopment/oapi-codegen
 
 go 1.20
 
