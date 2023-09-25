@@ -13,7 +13,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	"github.com/DeviesDevelopment/oapi-codegen/examples/petstore-expanded/fiber/api"
+	"github.com/deviesdevelopment/oapi-codegen/examples/petstore-expanded/fiber/api"
 	middleware "github.com/oapi-codegen/fiber-middleware"
 )
 

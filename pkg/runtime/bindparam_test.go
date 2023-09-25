@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DeviesDevelopment/oapi-codegen/pkg/types"
+	"github.com/deviesdevelopment/oapi-codegen/pkg/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

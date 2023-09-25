@@ -21,8 +21,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/DeviesDevelopment/oapi-codegen/examples/petstore-expanded/iris/api"
-	"github.com/DeviesDevelopment/oapi-codegen/pkg/testutil"
+	"github.com/deviesdevelopment/oapi-codegen/examples/petstore-expanded/iris/api"
+	"github.com/deviesdevelopment/oapi-codegen/pkg/testutil"
 	"github.com/stretchr/testify/assert"
 )
 

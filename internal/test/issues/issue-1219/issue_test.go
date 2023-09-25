@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	issue1219 "github.com/DeviesDevelopment/oapi-codegen/internal/test/issues/issue-1219"
+	issue1219 "github.com/deviesdevelopment/oapi-codegen/internal/test/issues/issue-1219"
 	"github.com/stretchr/testify/assert"
 )
 

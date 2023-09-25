@@ -21,7 +21,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/DeviesDevelopment/oapi-codegen/pkg/types"
+	"github.com/deviesdevelopment/oapi-codegen/pkg/types"
 )
 
 // BindStringToObject takes a string, and attempts to assign it to the destination

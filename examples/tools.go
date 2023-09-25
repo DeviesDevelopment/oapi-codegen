@@ -4,5 +4,5 @@
 package tools
 
 import (
-	_ "github.com/DeviesDevelopment/oapi-codegen/cmd/oapi-codegen"
+	_ "github.com/deviesdevelopment/oapi-codegen/cmd/oapi-codegen"
 )

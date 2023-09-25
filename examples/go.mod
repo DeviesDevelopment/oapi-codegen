@@ -1,11 +1,11 @@
-module github.com/DeviesDevelopment/oapi-codegen/examples
+module github.com/deviesdevelopment/oapi-codegen/examples
 
 go 1.20
 
-replace github.com/DeviesDevelopment/oapi-codegen => ../
+replace github.com/deviesdevelopment/oapi-codegen => ../
 
 require (
-	github.com/DeviesDevelopment/oapi-codegen v0.0.0-00010101000000-000000000000
+	github.com/deviesdevelopment/oapi-codegen v0.0.0-00010101000000-000000000000
 	github.com/getkin/kin-openapi v0.120.0
 	github.com/gin-gonic/gin v1.9.1
 	github.com/go-chi/chi/v5 v5.0.10

@@ -23,7 +23,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeviesDevelopment/oapi-codegen/pkg/types"
+	"github.com/deviesdevelopment/oapi-codegen/pkg/types"
 )
 
 // BindStyledParameter binds a parameter as described in the Path Parameters

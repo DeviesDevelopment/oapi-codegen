@@ -26,7 +26,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeviesDevelopment/oapi-codegen/pkg/types"
+	"github.com/deviesdevelopment/oapi-codegen/pkg/types"
 	"github.com/google/uuid"
 )
 
@@ -73,7 +73,7 @@ func StyleParamWithLocation(style string, explode bool, paramName string, paramL
 	}
 
 	// If the value implements encoding.TextMarshaler we use it for marshaling
-	// https://github.com/DeviesDevelopment/oapi-codegen/issues/504
+	// https://github.com/deviesdevelopment/oapi-codegen/issues/504
 	if tu, ok := value.(encoding.TextMarshaler); ok {
 		t := reflect.Indirect(reflect.ValueOf(value)).Type()
 		convertableToTime := t.ConvertibleTo(reflect.TypeOf(time.Time{}))

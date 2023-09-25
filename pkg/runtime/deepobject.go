@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DeviesDevelopment/oapi-codegen/pkg/types"
+	"github.com/deviesdevelopment/oapi-codegen/pkg/types"
 )
 
 func marshalDeepObject(in interface{}, path []string) ([]string, error) {

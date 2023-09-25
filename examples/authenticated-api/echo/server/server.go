@@ -6,7 +6,7 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/DeviesDevelopment/oapi-codegen/examples/authenticated-api/echo/api"
+	"github.com/deviesdevelopment/oapi-codegen/examples/authenticated-api/echo/api"
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/labstack/echo/v4"
 	middleware "github.com/oapi-codegen/echo-middleware"

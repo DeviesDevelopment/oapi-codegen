@@ -5,8 +5,8 @@ import (
 	"log"
 	"net"
 
-	"github.com/DeviesDevelopment/oapi-codegen/examples/authenticated-api/echo/api"
-	"github.com/DeviesDevelopment/oapi-codegen/examples/authenticated-api/echo/server"
+	"github.com/deviesdevelopment/oapi-codegen/examples/authenticated-api/echo/api"
+	"github.com/deviesdevelopment/oapi-codegen/examples/authenticated-api/echo/server"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 )

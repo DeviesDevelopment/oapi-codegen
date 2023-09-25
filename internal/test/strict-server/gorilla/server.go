@@ -1,5 +1,5 @@
-//go:generate go run github.com/DeviesDevelopment/oapi-codegen/cmd/oapi-codegen --config=server.cfg.yaml ../strict-schema.yaml
-//go:generate go run github.com/DeviesDevelopment/oapi-codegen/cmd/oapi-codegen --config=types.cfg.yaml ../strict-schema.yaml
+//go:generate go run github.com/deviesdevelopment/oapi-codegen/cmd/oapi-codegen --config=server.cfg.yaml ../strict-schema.yaml
+//go:generate go run github.com/deviesdevelopment/oapi-codegen/cmd/oapi-codegen --config=types.cfg.yaml ../strict-schema.yaml
 
 package api
 

@@ -1,4 +1,4 @@
-module github.com/DeviesDevelopment/oapi-codegen
+module github.com/deviesdevelopment/oapi-codegen
 
 go 1.20
 

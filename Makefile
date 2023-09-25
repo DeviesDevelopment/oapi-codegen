@@ -17,7 +17,7 @@ tools: $(GOBIN)/golangci-lint
 
 .PHONY: build
 build:
-	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "-s -w" -o bin/oapi-codegen ./cmd/...
+	GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -ldflags "-s -w" -o bin/oapi-codegen ./cmd/...
 
 lint: tools
 	git ls-files go.mod '**/*go.mod' -z | xargs -0 -I{} bash -xc 'cd $$(dirname {}) && $(GOBIN)/golangci-lint run ./...'

@@ -10,9 +10,9 @@ import (
 	"net/http"
 	"testing"
 
-	examplePetstoreClient "github.com/DeviesDevelopment/oapi-codegen/examples/petstore-expanded"
-	examplePetstore "github.com/DeviesDevelopment/oapi-codegen/examples/petstore-expanded/echo/api"
-	"github.com/DeviesDevelopment/oapi-codegen/pkg/codegen"
+	examplePetstoreClient "github.com/deviesdevelopment/oapi-codegen/examples/petstore-expanded"
+	examplePetstore "github.com/deviesdevelopment/oapi-codegen/examples/petstore-expanded/echo/api"
+	"github.com/deviesdevelopment/oapi-codegen/pkg/codegen"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/lint"

@@ -19,16 +19,16 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 
-	chiAPI "github.com/DeviesDevelopment/oapi-codegen/internal/test/strict-server/chi"
-	clientAPI "github.com/DeviesDevelopment/oapi-codegen/internal/test/strict-server/client"
-	echoAPI "github.com/DeviesDevelopment/oapi-codegen/internal/test/strict-server/echo"
-	fiberAPI "github.com/DeviesDevelopment/oapi-codegen/internal/test/strict-server/fiber"
-	ginAPI "github.com/DeviesDevelopment/oapi-codegen/internal/test/strict-server/gin"
-	irisAPI "github.com/DeviesDevelopment/oapi-codegen/internal/test/strict-server/iris"
+	chiAPI "github.com/deviesdevelopment/oapi-codegen/internal/test/strict-server/chi"
+	clientAPI "github.com/deviesdevelopment/oapi-codegen/internal/test/strict-server/client"
+	echoAPI "github.com/deviesdevelopment/oapi-codegen/internal/test/strict-server/echo"
+	fiberAPI "github.com/deviesdevelopment/oapi-codegen/internal/test/strict-server/fiber"
+	ginAPI "github.com/deviesdevelopment/oapi-codegen/internal/test/strict-server/gin"
+	irisAPI "github.com/deviesdevelopment/oapi-codegen/internal/test/strict-server/iris"
 
-	// "github.com/DeviesDevelopment/oapi-codegen/pkg/runtime"
-	"github.com/DeviesDevelopment/oapi-codegen/pkg/runtime"
-	"github.com/DeviesDevelopment/oapi-codegen/pkg/testutil"
+	// "github.com/deviesdevelopment/oapi-codegen/pkg/runtime"
+	"github.com/deviesdevelopment/oapi-codegen/pkg/runtime"
+	"github.com/deviesdevelopment/oapi-codegen/pkg/testutil"
 )
 
 func TestIrisServer(t *testing.T) {

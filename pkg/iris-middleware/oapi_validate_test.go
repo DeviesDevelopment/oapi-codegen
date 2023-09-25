@@ -11,7 +11,7 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/DeviesDevelopment/oapi-codegen/pkg/testutil"
+	"github.com/deviesdevelopment/oapi-codegen/pkg/testutil"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/kataras/iris/v12"

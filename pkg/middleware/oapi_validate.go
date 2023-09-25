@@ -78,7 +78,7 @@ type Options struct {
 	UserData          interface{}
 	Skipper           echomiddleware.Skipper
 	MultiErrorHandler MultiErrorHandler
-	// SilenceServersWarning allows silencing a warning for https://github.com/DeviesDevelopment/oapi-codegen/issues/882 that reports when an OpenAPI spec has `spec.Servers != nil`
+	// SilenceServersWarning allows silencing a warning for https://github.com/deviesdevelopment/oapi-codegen/issues/882 that reports when an OpenAPI spec has `spec.Servers != nil`
 	SilenceServersWarning bool
 }
 
@@ -86,7 +86,7 @@ type Options struct {
 // Deprecated: This has been replaced by github.com/oapi-codegen/echo-middleware#OapiRequestValidatorWithOptions
 func OapiRequestValidatorWithOptions(swagger *openapi3.T, options *Options) echo.MiddlewareFunc {
 	if swagger.Servers != nil && (options == nil || !options.SilenceServersWarning) {
-		log.Println("WARN: OapiRequestValidatorWithOptions called with an OpenAPI spec that has `Servers` set. This may lead to an HTTP 400 with `no matching operation was found` when sending a valid request, as the validator performs `Host` header validation. If you're expecting `Host` header validation, you can silence this warning by setting `Options.SilenceServersWarning = true`. See https://github.com/DeviesDevelopment/oapi-codegen/issues/882 for more information.")
+		log.Println("WARN: OapiRequestValidatorWithOptions called with an OpenAPI spec that has `Servers` set. This may lead to an HTTP 400 with `no matching operation was found` when sending a valid request, as the validator performs `Host` header validation. If you're expecting `Host` header validation, you can silence this warning by setting `Options.SilenceServersWarning = true`. See https://github.com/deviesdevelopment/oapi-codegen/issues/882 for more information.")
 	}
 
 	router, err := gorillamux.NewRouter(swagger)

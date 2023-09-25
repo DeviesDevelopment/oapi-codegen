@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/DeviesDevelopment/oapi-codegen/examples/authenticated-api/echo/api"
-	"github.com/DeviesDevelopment/oapi-codegen/pkg/testutil"
+	"github.com/deviesdevelopment/oapi-codegen/examples/authenticated-api/echo/api"
+	"github.com/deviesdevelopment/oapi-codegen/pkg/testutil"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
