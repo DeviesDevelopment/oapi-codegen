@@ -4,7 +4,7 @@ import (
 	_ "embed"
 	"testing"
 
-	"github.com/deepmap/oapi-codegen/pkg/codegen"
+	"github.com/deviesdevelopment/oapi-codegen/pkg/codegen"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/stretchr/testify/require"
 )
@@ -21,7 +21,7 @@ func TestIssue(t *testing.T) {
 
 	opts := codegen.NewDefaultConfigurationWithPackage("issue1093")
 	opts.ImportMapping = map[string]string{
-		"parent.api.yaml": "github.com/deepmap/oapi-codegen/internal/test/issues/issue-1093/api/parent",
+		"parent.api.yaml": "github.com/deviesdevelopment/oapi-codegen/internal/test/issues/issue-1093/api/parent",
 	}
 
 	_, err = codegen.Generate(swagger, opts)

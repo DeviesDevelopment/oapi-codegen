@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/deepmap/oapi-codegen/pkg/types"
+	"github.com/deviesdevelopment/oapi-codegen/pkg/types"
 )
 
 const tagName = "json"
